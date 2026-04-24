@@ -18,7 +18,7 @@ class LLMClient:
     def __init__(self):
         self.provider = settings.LLM_PROVIDER
         self.model = settings.LLM_MODEL
-        self.client = httpx.AsyncClient(timeout=120.0)
+        self.client = httpx.AsyncClient(timeout=300.0)
 
     async def chat(
         self,
