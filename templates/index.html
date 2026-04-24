@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Flou2Flow — Transformez vos besoins métier non structurés en workflows exploitables grâce à l'IA">
+    <title>{{ title }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body>
+    <!-- ═══ Background Effects ═══ -->
+    <div class="bg-effects">
+        <div class="bg-orb bg-orb-1"></div>
+        <div class="bg-orb bg-orb-2"></div>
+        <div class="bg-orb bg-orb-3"></div>
+        <div class="grid-overlay"></div>
+    </div>
+
+    <!-- ═══ Header ═══ -->
+    <header class="header">
+        <div class="header-inner">
+            <div class="logo">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 12C8 8 12 4 20 8C28 12 24 20 20 20C16 20 12 16 16 12C20 8 28 12 28 20C28 28 20 36 12 28" stroke="url(#grad)" stroke-width="3" stroke-linecap="round"/>
+                        <defs><linearGradient id="grad" x1="8" y1="4" x2="28" y2="36"><stop stop-color="#818cf8"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+                    </svg>
+                </div>
+                <h1 class="logo-text">
+                    <span class="logo-flou">Flou</span><span class="logo-2">2</span><span class="logo-flow">Flow</span>
+                </h1>
+            </div>
+            <p class="tagline">Du flou au flow — Transformez vos besoins métier en workflows exploitables</p>
+        </div>
+    </header>
+
+    <!-- ═══ Main Content ═══ -->
+    <main class="main">
+        <!-- ── Input Section ── -->
+        <section class="input-section" id="input-section">
+            <div class="section-header">
+                <div class="section-badge">
+                    <span class="badge-dot"></span>
+                    ENTRÉE
+                </div>
+                <h2>Décrivez votre processus métier</h2>
+                <p class="section-subtitle">Collez votre description, notes de réunion, procédure informelle ou tout texte décrivant un processus métier</p>
+            </div>
+
+            <div class="input-card glass-card">
+                <textarea
+                    id="input-text"
+                    class="input-textarea"
+                    placeholder="Décrivez votre processus métier ici...&#10;&#10;Exemple : Quand un employé veut prendre des congés, il doit d'abord vérifier son solde de congés dans le système RH. Ensuite, il remplit une demande de congé en précisant les dates souhaitées..."
+                    rows="8"
+                ></textarea>
+
+                <div class="input-actions">
+                    <div class="examples-dropdown">
+                        <button class="btn btn-ghost" id="examples-btn" type="button">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3h10v2H3V3zm0 4h10v2H3V7zm0 4h7v2H3v-2z" fill="currentColor"/></svg>
+                            Exemples
+                        </button>
+                        <div class="dropdown-menu" id="examples-menu"></div>
+                    </div>
+                    <div class="input-meta">
+                        <span id="char-count">0 caractères</span>
+                    </div>
+                    <button class="btn btn-primary" id="process-btn" type="button">
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 9l5 5L16 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Transformer en Workflow
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Pipeline Progress ── -->
+        <section class="pipeline-section" id="pipeline-section" style="display: none;">
+            <div class="section-header">
+                <div class="section-badge">
+                    <span class="badge-dot pulse"></span>
+                    PIPELINE IA
+                </div>
+                <h2>Analyse en cours</h2>
+            </div>
+
+            <div class="pipeline-steps">
+                <div class="pipeline-step" id="step-1" data-step="1">
+                    <div class="step-indicator">
+                        <div class="step-circle">
+                            <span class="step-number">1</span>
+                            <div class="step-spinner"></div>
+                            <svg class="step-check" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                        </div>
+                        <div class="step-line"></div>
+                    </div>
+                    <div class="step-content">
+                        <h3>Compréhension du contexte</h3>
+                        <p>Analyse du domaine, des objectifs et des parties prenantes</p>
+                        <div class="step-result" id="step-1-result"></div>
+                    </div>
+                </div>
+
+                <div class="pipeline-step" id="step-2" data-step="2">
+                    <div class="step-indicator">
+                        <div class="step-circle">
+                            <span class="step-number">2</span>
+                            <div class="step-spinner"></div>
+                            <svg class="step-check" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                        </div>
+                        <div class="step-line"></div>
+                    </div>
+                    <div class="step-content">
+                        <h3>Extraction des entités</h3>
+                        <p>Identification des acteurs, tâches, décisions et règles</p>
+                        <div class="step-result" id="step-2-result"></div>
+                    </div>
+                </div>
+
+                <div class="pipeline-step" id="step-3" data-step="3">
+                    <div class="step-indicator">
+                        <div class="step-circle">
+                            <span class="step-number">3</span>
+                            <div class="step-spinner"></div>
+                            <svg class="step-check" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                        </div>
+                        <div class="step-line"></div>
+                    </div>
+                    <div class="step-content">
+                        <h3>Construction du flux</h3>
+                        <p>Création du graphe de processus dirigé</p>
+                        <div class="step-result" id="step-3-result"></div>
+                    </div>
+                </div>
+
+                <div class="pipeline-step" id="step-4" data-step="4">
+                    <div class="step-indicator">
+                        <div class="step-circle">
+                            <span class="step-number">4</span>
+                            <div class="step-spinner"></div>
+                            <svg class="step-check" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                        </div>
+                    </div>
+                    <div class="step-content">
+                        <h3>Génération du workflow</h3>
+                        <p>Production du workflow Elsa et du diagramme visuel</p>
+                        <div class="step-result" id="step-4-result"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Results Section ── -->
+        <section class="results-section" id="results-section" style="display: none;">
+            <div class="section-header">
+                <div class="section-badge success">
+                    <span class="badge-dot"></span>
+                    RÉSULTAT
+                </div>
+                <h2>Workflow Généré</h2>
+            </div>
+
+            <!-- Tab navigation -->
+            <div class="results-tabs">
+                <button class="tab-btn active" data-tab="diagram" type="button">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h4v4H2V2zm8 0h4v4h-4V2zm-4 8h4v4H6v-4z" fill="currentColor"/><path d="M4 6v2h2m4-2v4H8m6-4v2" stroke="currentColor" stroke-width="1.5"/></svg>
+                    Diagramme
+                </button>
+                <button class="tab-btn" data-tab="context" type="button">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3m0 2v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    Contexte
+                </button>
+                <button class="tab-btn" data-tab="entities" type="button">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4h8M4 8h8M4 12h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    Entités
+                </button>
+                <button class="tab-btn" data-tab="elsa" type="button">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h8l-2 4 2 4H4l2-4-2-4z" stroke="currentColor" stroke-width="1.5"/></svg>
+                    Elsa JSON
+                </button>
+            </div>
+
+            <!-- Tab panels -->
+            <div class="tab-panels">
+                <!-- Diagram Tab -->
+                <div class="tab-panel active" id="tab-diagram">
+                    <div class="diagram-container glass-card">
+                        <div id="mermaid-diagram" class="mermaid-output"></div>
+                    </div>
+                </div>
+
+                <!-- Context Tab -->
+                <div class="tab-panel" id="tab-context">
+                    <div class="context-grid" id="context-grid"></div>
+                </div>
+
+                <!-- Entities Tab -->
+                <div class="tab-panel" id="tab-entities">
+                    <div class="entities-grid" id="entities-grid"></div>
+                </div>
+
+                <!-- Elsa JSON Tab -->
+                <div class="tab-panel" id="tab-elsa">
+                    <div class="json-container glass-card">
+                        <div class="json-header">
+                            <span>Elsa Workflows v3 — Définition JSON</span>
+                            <button class="btn btn-ghost btn-sm" id="copy-json-btn" type="button">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5"/><path d="M2 10V3a1 1 0 011-1h7" stroke="currentColor" stroke-width="1.5"/></svg>
+                                Copier
+                            </button>
+                            <button class="btn btn-ghost btn-sm" id="download-json-btn" type="button">
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v7m0 0l-3-3m3 3l3-3M2 12h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                Télécharger
+                            </button>
+                        </div>
+                        <pre class="json-output"><code id="elsa-json"></code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ── Error Section ── -->
+        <section class="error-section" id="error-section" style="display: none;">
+            <div class="error-card glass-card">
+                <div class="error-icon">⚠️</div>
+                <h3>Erreur lors du traitement</h3>
+                <p id="error-message"></p>
+                <button class="btn btn-primary" id="retry-btn" type="button">Réessayer</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- ═══ Footer ═══ -->
+    <footer class="footer">
+        <p>
+            <strong>Flou2Flow</strong> — Propulsé par Mistral 7B Instruct
+            <span class="footer-sep">•</span>
+            Hackathon 2026
+        </p>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
