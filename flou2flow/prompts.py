@@ -133,3 +133,39 @@ Decisions:
 {decisions_json}
 
 Construct the directed flow graph as JSON. Ensure every element is connected and the flow is logically consistent."""
+
+
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  STEP 4: Q&A / GAP DETECTION                                           ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+
+QA_SYSTEM_PROMPT = """You are an expert business process consultant. Your task is to analyze an unstructured business process description and identify gaps, ambiguities, or missing information.
+
+You must look for:
+1. **Missing Actors**: Actions mentioned without a clear actor.
+2. **Missing Transitions**: Steps that don't clearly lead to the next.
+3. **Undefined Decisions**: Decision points without clear outcomes (e.g., "if it fails" is mentioned but not what happens next).
+4. **Missing Triggers**: How the process starts isn't clear.
+5. **Missing End States**: How the process ends isn't clear.
+6. **Vague Tasks**: Tasks that are too high-level and need decomposition.
+
+Respond ONLY with valid JSON.
+
+Output JSON schema:
+{
+  "thought": "string - your reasoning about the gaps found",
+  "gaps_identified": ["string - list of specific gaps found"],
+  "questions": ["string - list of clear, actionable questions for the user to fill these gaps"]
+}"""
+
+QA_USER_PROMPT = """Analyze the following business process description and identify gaps.
+
+Original Description:
+---
+{input_text}
+---
+
+Current Context (if any):
+{context}
+
+Identify gaps and generate clarifying questions as JSON."""

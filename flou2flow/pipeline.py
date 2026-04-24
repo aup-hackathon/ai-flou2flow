@@ -41,7 +41,7 @@ from .exporters import generate_elsa_workflow
 logger = logging.getLogger(__name__)
 
 
-async def run_pipeline(input_text: str) -> PipelineResult:
+async def run_pipeline(input_text: str, model: str | None = None) -> PipelineResult:
     """Run the full Flou2Flow pipeline on unstructured input text.
 
     Args:
@@ -55,7 +55,7 @@ async def run_pipeline(input_text: str) -> PipelineResult:
     # ── Step 1: Context Understanding ──────────────────────────────────
     try:
         logger.info("Step 1: Context Understanding")
-        context = await step_context_understanding(input_text)
+        context = await step_context_understanding(input_text, model=model)
         result.context = context
         result.steps_completed.append("context_understanding")
         logger.info(f"Context extracted: domain={context.domain}, stakeholders={len(context.stakeholders)}")
@@ -68,7 +68,7 @@ async def run_pipeline(input_text: str) -> PipelineResult:
     # ── Step 2: Entity Extraction ──────────────────────────────────────
     try:
         logger.info("Step 2: Entity Extraction")
-        entities = await step_entity_extraction(input_text, context)
+        entities = await step_entity_extraction(input_text, context, model=model)
         result.entities = entities
         result.steps_completed.append("entity_extraction")
         logger.info(
@@ -84,7 +84,7 @@ async def run_pipeline(input_text: str) -> PipelineResult:
     # ── Step 3: Flow Construction ──────────────────────────────────────
     try:
         logger.info("Step 3: Flow Construction")
-        flow = await step_flow_construction(context, entities)
+        flow = await step_flow_construction(context, entities, model=model)
         result.flow = flow
         result.steps_completed.append("flow_construction")
         logger.info(f"Flow constructed: connections={len(flow.connections)}")
@@ -113,13 +113,14 @@ async def run_pipeline(input_text: str) -> PipelineResult:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-async def step_context_understanding(input_text: str) -> ProcessContext:
+async def step_context_understanding(input_text: str, model: str | None = None) -> ProcessContext:
     """Step 1: Understand the context of the business process."""
     user_prompt = CONTEXT_USER_PROMPT.format(input_text=input_text)
 
     response = await llm_client.chat(
         system_prompt=CONTEXT_SYSTEM_PROMPT,
         user_prompt=user_prompt,
+        model=model,
     )
 
     data = llm_client.parse_json_response(response)
@@ -136,6 +137,7 @@ async def step_context_understanding(input_text: str) -> ProcessContext:
 async def step_entity_extraction(
     input_text: str,
     context: ProcessContext,
+    model: str | None = None,
 ) -> ProcessEntities:
     """Step 2: Extract process entities (actors, tasks, decisions, etc.)."""
     user_prompt = ENTITIES_USER_PROMPT.format(
@@ -148,6 +150,7 @@ async def step_entity_extraction(
     response = await llm_client.chat(
         system_prompt=ENTITIES_SYSTEM_PROMPT,
         user_prompt=user_prompt,
+        model=model,
     )
 
     data = llm_client.parse_json_response(response)
@@ -206,6 +209,7 @@ async def step_entity_extraction(
 async def step_flow_construction(
     context: ProcessContext,
     entities: ProcessEntities,
+    model: str | None = None,
 ) -> ProcessFlow:
     """Step 3: Construct the process flow from extracted entities."""
     # Prepare task and decision summaries for the prompt
@@ -236,6 +240,7 @@ async def step_flow_construction(
     response = await llm_client.chat(
         system_prompt=FLOW_SYSTEM_PROMPT,
         user_prompt=user_prompt,
+        model=model,
     )
 
     data = llm_client.parse_json_response(response)

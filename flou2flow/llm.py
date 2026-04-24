@@ -27,15 +27,17 @@ class LLMClient:
         temperature: float | None = None,
         max_tokens: int | None = None,
         json_mode: bool = True,
+        model: str | None = None,
     ) -> str:
         """Send a chat completion request and return the response text."""
         temp = temperature or settings.TEMPERATURE
         tokens = max_tokens or settings.MAX_TOKENS
 
+        target_model = model or self.model
         if self.provider == "ollama":
-            return await self._ollama_chat(system_prompt, user_prompt, temp, tokens, json_mode)
+            return await self._ollama_chat(system_prompt, user_prompt, temp, tokens, json_mode, target_model)
         else:
-            return await self._mistral_chat(system_prompt, user_prompt, temp, tokens, json_mode)
+            return await self._mistral_chat(system_prompt, user_prompt, temp, tokens, json_mode, target_model)
 
     async def _mistral_chat(
         self,
@@ -44,6 +46,7 @@ class LLMClient:
         temperature: float,
         max_tokens: int,
         json_mode: bool,
+        model: str,
     ) -> str:
         """Call Mistral AI API."""
         headers = {
@@ -52,7 +55,7 @@ class LLMClient:
         }
 
         payload = {
-            "model": self.model,
+            "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -64,7 +67,7 @@ class LLMClient:
         if json_mode:
             payload["response_format"] = {"type": "json_object"}
 
-        logger.info(f"Calling Mistral API with model={self.model}")
+        logger.info(f"Calling Mistral API with model={model}")
 
         response = await self.client.post(
             settings.MISTRAL_API_URL,
@@ -85,10 +88,11 @@ class LLMClient:
         temperature: float,
         max_tokens: int,
         json_mode: bool,
+        model: str,
     ) -> str:
         """Call Ollama local API."""
         payload = {
-            "model": self.model,
+            "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -103,7 +107,7 @@ class LLMClient:
         if json_mode:
             payload["format"] = "json"
 
-        logger.info(f"Calling Ollama with model={self.model}")
+        logger.info(f"Calling Ollama with model={model}")
 
         response = await self.client.post(
             f"{settings.OLLAMA_BASE_URL}/api/chat",

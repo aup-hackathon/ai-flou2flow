@@ -114,6 +114,7 @@ class QueueRequest(BaseModel):
     workflow: str = Field(description="One of: full, process, elsa")
     input_text: str = Field(description="Unstructured business process description")
     mode: str = Field(default="auto", description="Execution mode (auto, interactive)")
+    model: str | None = Field(default=None, description="Optional model override (e.g., 'elsa', 'mistral')")
     image_data: str | None = Field(default=None, description="Base64 encoded image data for multimodal processing")
 
 
@@ -121,6 +122,7 @@ class AgentRequest(BaseModel):
     """API request for agentic system."""
     task: str = Field(description="User task for the agentic system")
     mode: str = Field(default="auto", description="Execution mode (auto, interactive)")
+    model: str | None = Field(default=None, description="Optional model override")
     image_data: str | None = Field(default=None, description="Base64 encoded image data for multimodal processing")
 
 
@@ -138,3 +140,18 @@ class StepResult(BaseModel):
     status: str  # "success", "error", "processing"
     data: dict = Field(default_factory=dict)
     error: str = ""
+
+
+class QARequest(BaseModel):
+    """API request for Q&A Agent."""
+    input_text: str = Field(description="Unstructured business process description")
+    context: dict | None = Field(default=None, description="Current process context if any")
+    model: str | None = Field(default=None, description="Optional model override")
+    image_data: str | None = Field(default=None, description="Base64 encoded image data for multimodal processing")
+
+
+class QAResponse(BaseModel):
+    """Structured response from the Q&A Agent."""
+    questions: list[str] = Field(description="List of clarifying questions to fill gaps")
+    gaps_identified: list[str] = Field(description="List of identified gaps or ambiguities")
+    thought: str = Field(description="Agent's reasoning about the gaps")

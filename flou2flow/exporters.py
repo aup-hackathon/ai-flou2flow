@@ -13,14 +13,6 @@ def generate_elsa_workflow(
     entities: ProcessEntities,
     flow: ProcessFlow,
 ) -> dict[str, Any]:
-    """Generate an Elsa Workflows v3 compatible JSON definition.
-
-    Elsa Workflows uses a JSON-based format with:
-    - Root activity (Flowchart or Sequence)
-    - Activities (tasks, decisions, start/end events)
-    - Connections between activities
-    - Variables
-    """
     workflow_id = str(uuid.uuid4())
     definition_id = f"flou2flow-{str(uuid.uuid4())[:8]}"
 

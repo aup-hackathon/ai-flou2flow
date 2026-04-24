@@ -12,7 +12,8 @@ from .pipeline import (
     step_flow_construction,
 )
 from .exporters import generate_elsa_workflow
-from .models import AgentResponse, ProcessContext, ProcessEntities, ProcessFlow
+from .models import AgentResponse, ProcessContext, ProcessEntities, ProcessFlow, QAResponse
+from .prompts import QA_SYSTEM_PROMPT, QA_USER_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class FlouAgent:
     def __init__(self):
         self.history = []
 
-    async def run(self, task: str, mode: str = "auto") -> AgentResponse:
+    async def run(self, task: str, mode: str = "auto", model: str | None = None) -> AgentResponse:
         steps_taken = []
         tool_calls = []
         context = {}
@@ -67,7 +68,8 @@ class FlouAgent:
             response_text = await llm_client.chat(
                 system_prompt=current_system_prompt,
                 user_prompt=current_input,
-                json_mode=True
+                json_mode=True,
+                model=model
             )
             
             try:
@@ -89,7 +91,7 @@ class FlouAgent:
                 logger.info(f"Agent calling tool: {tool_name}")
                 
                 try:
-                    result = await self.execute_tool(tool_name, args, context)
+                    result = await self.execute_tool(tool_name, args, context, model=model)
                     current_input = f"Tool '{tool_name}' returned: {json.dumps(result, ensure_ascii=False)}"
                     # Store context to pass between tools if needed
                     if tool_name == "analyze_context":
@@ -116,10 +118,32 @@ class FlouAgent:
             tool_calls=tool_calls
         )
 
-    async def execute_tool(self, tool_name: str, args: Dict[str, Any], context: Dict[str, Any]) -> Any:
+    async def generate_questions(self, input_text: str, context: dict | None = None, model: str | None = None) -> QAResponse:
+        """Analyze input text for gaps and generate clarifying questions."""
+        user_prompt = QA_USER_PROMPT.format(
+            input_text=input_text,
+            context=json.dumps(context, ensure_ascii=False) if context else "None"
+        )
+        
+        response_text = await llm_client.chat(
+            system_prompt=QA_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            json_mode=True,
+            model=model
+        )
+        
+        data = llm_client.parse_json_response(response_text)
+        
+        return QAResponse(
+            questions=data.get("questions", []),
+            gaps_identified=data.get("gaps_identified", []),
+            thought=data.get("thought", "")
+        )
+
+    async def execute_tool(self, tool_name: str, args: Dict[str, Any], context: Dict[str, Any], model: str | None = None) -> Any:
         if tool_name == "analyze_context":
             input_text = args.get("input_text")
-            res = await step_context_understanding(input_text)
+            res = await step_context_understanding(input_text, model=model)
             return res.model_dump()
         
         elif tool_name == "extract_entities":
@@ -128,7 +152,7 @@ class FlouAgent:
             if not ctx_data:
                 raise ValueError("Context is required for extract_entities")
             ctx = ProcessContext(**ctx_data)
-            res = await step_entity_extraction(input_text, ctx)
+            res = await step_entity_extraction(input_text, ctx, model=model)
             return res.model_dump()
         
         elif tool_name == "construct_flow":
@@ -138,7 +162,7 @@ class FlouAgent:
                 raise ValueError("Context and entities are required for construct_flow")
             ctx = ProcessContext(**ctx_data)
             ent = ProcessEntities(**ent_data)
-            res = await step_flow_construction(ctx, ent)
+            res = await step_flow_construction(ctx, ent, model=model)
             return res.model_dump()
         
         elif tool_name == "generate_elsa":

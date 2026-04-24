@@ -10,7 +10,6 @@ from fastapi.responses import JSONResponse
 import uuid
 
 from .config import settings
-from .models import QueueRequest, AgentRequest, AgentResponse
 from .pipeline import run_pipeline
 from .llm import llm_client
 from .agent import FlouAgent
@@ -67,14 +66,14 @@ async def process_multimodal_input(input_text: str, image_data: str | None) -> s
         return f"{input_text}\n\n(Note: Image analysis failed: {str(e)})"
 
 
-async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: str, image_data: str | None = None):
+async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: str, image_data: str | None = None, model: str | None = None):
     """Background task to run the workflow."""
     JOBS[job_id] = {"status": "processing", "workflow": workflow, "mode": mode}
     try:
         # Step 0: Multimodal processing
         processed_text = await process_multimodal_input(input_text, image_data)
         
-        result = await run_pipeline(processed_text)
+        result = await run_pipeline(processed_text, model=model)
         
         if workflow == "full":
             data = {
@@ -111,7 +110,7 @@ async def queue_task(req: QueueRequest, background_tasks: BackgroundTasks):
     job_id = str(uuid.uuid4())
     JOBS[job_id] = {"status": "queued", "mode": req.mode}
     
-    background_tasks.add_task(run_workflow_task, job_id, req.workflow, req.input_text, req.mode, req.image_data)
+    background_tasks.add_task(run_workflow_task, job_id, req.workflow, req.input_text, req.mode, req.image_data, req.model)
     
     return {"job_id": job_id, "status": "queued", "mode": req.mode}
 
@@ -135,7 +134,7 @@ async def run_agent(req: AgentRequest):
     
     agent = FlouAgent()
     try:
-        response = await agent.run(processed_task, mode=req.mode)
+        response = await agent.run(processed_task, mode=req.mode, model=req.model)
         return response
     except Exception as e:
         logger.error(f"Agent error: {e}", exc_info=True)
