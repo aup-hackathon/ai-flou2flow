@@ -47,18 +47,25 @@ class FlouAgent:
     def __init__(self):
         self.history = []
 
-    async def run(self, task: str) -> AgentResponse:
+    async def run(self, task: str, mode: str = "auto") -> AgentResponse:
         steps_taken = []
         tool_calls = []
-        context = {} # Keep track of intermediate results
+        context = {}
         
+        # Adjust system prompt based on mode
+        mode_instruction = ""
+        if mode == "interactive":
+            mode_instruction = "\nMODE: INTERACTIVE. If you are unsure about something or need more details from the user, you can stop and ask a question using the 'final_result' field."
+        else:
+            mode_instruction = "\nMODE: AUTO. Try to complete the task autonomously. Make reasonable assumptions if needed."
+
+        current_system_prompt = AGENT_SYSTEM_PROMPT + mode_instruction
         current_input = f"User Task: {task}"
         
-        # Limit iterations to avoid infinite loops
         max_iterations = 10
         for i in range(max_iterations):
             response_text = await llm_client.chat(
-                system_prompt=AGENT_SYSTEM_PROMPT,
+                system_prompt=current_system_prompt,
                 user_prompt=current_input,
                 json_mode=True
             )

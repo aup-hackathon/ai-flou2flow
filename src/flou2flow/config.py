@@ -18,13 +18,11 @@ class Settings:
     """Application settings loaded from environment variables."""
 
     # LLM Configuration
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "mistral")  # "mistral" or "ollama"
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")  # Default to ollama
     MISTRAL_API_KEY: str = os.getenv("MISTRAL_API_KEY", "")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "mistral-small-latest")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen2:1.5b")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
-    # Mistral API base URL
-    MISTRAL_API_URL: str = "https://api.mistral.ai/v1/chat/completions"
 
     # Server
     HOST: str = os.getenv("HOST", "0.0.0.0")
@@ -33,6 +31,7 @@ class Settings:
     # LLM Parameters
     TEMPERATURE: float = 0.3  # Low temperature for structured output
     MAX_TOKENS: int = 4096
+    VISION_MODEL: str = os.getenv("VISION_MODEL", "llava")
 
     @property
     def api_url(self) -> str:

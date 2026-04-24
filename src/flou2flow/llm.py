@@ -116,6 +116,41 @@ class LLMClient:
         logger.info(f"Ollama response received ({len(content)} chars)")
         return content
 
+    async def vision_chat(
+        self,
+        prompt: str,
+        image_data: str, # Base64
+        model: str | None = None,
+    ) -> str:
+        """Analyze an image using a vision model."""
+        target_model = model or settings.VISION_MODEL
+        
+        if self.provider == "ollama":
+            payload = {
+                "model": target_model,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt,
+                        "images": [image_data]
+                    }
+                ],
+                "stream": False,
+            }
+            
+            logger.info(f"Calling Ollama Vision with model={target_model}")
+            response = await self.client.post(
+                f"{settings.OLLAMA_BASE_URL}/api/chat",
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data["message"]["content"]
+        else:
+            # Fallback or Mistral multimodal if supported
+            logger.warning("Vision chat not fully implemented for non-ollama providers")
+            return "Vision analysis currently only supported with Ollama provider."
+
     def parse_json_response(self, response: str) -> dict:
         """Parse JSON from LLM response, handling markdown code blocks."""
         text = response.strip()

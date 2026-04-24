@@ -49,11 +49,32 @@ async def health_check():
     }
 
 
-async def run_workflow_task(job_id: str, workflow: str, input_text: str):
-    """Background task to run the workflow."""
-    JOBS[job_id] = {"status": "processing", "workflow": workflow}
+async def process_multimodal_input(input_text: str, image_data: str | None) -> str:
+    """If image data is provided, analyze it and enrich the input text."""
+    if not image_data:
+        return input_text
+    
     try:
-        result = await run_pipeline(input_text)
+        logger.info("Analyzing multimodal input (image)...")
+        description = await llm_client.vision_chat(
+            prompt="Analyze this process diagram or whiteboard drawing. Describe the actors, tasks, and flow in detail so it can be transformed into a structured workflow.",
+            image_data=image_data
+        )
+        enriched_text = f"{input_text}\n\n[Diagram Description]:\n{description}"
+        return enriched_text
+    except Exception as e:
+        logger.error(f"Multimodal analysis failed: {e}")
+        return f"{input_text}\n\n(Note: Image analysis failed: {str(e)})"
+
+
+async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: str, image_data: str | None = None):
+    """Background task to run the workflow."""
+    JOBS[job_id] = {"status": "processing", "workflow": workflow, "mode": mode}
+    try:
+        # Step 0: Multimodal processing
+        processed_text = await process_multimodal_input(input_text, image_data)
+        
+        result = await run_pipeline(processed_text)
         
         if workflow == "full":
             data = {
@@ -88,11 +109,11 @@ async def run_workflow_task(job_id: str, workflow: str, input_text: str):
 async def queue_task(req: QueueRequest, background_tasks: BackgroundTasks):
     """Enqueue a workflow task and return a job ID immediately."""
     job_id = str(uuid.uuid4())
-    JOBS[job_id] = {"status": "queued"}
+    JOBS[job_id] = {"status": "queued", "mode": req.mode}
     
-    background_tasks.add_task(run_workflow_task, job_id, req.workflow, req.input_text)
+    background_tasks.add_task(run_workflow_task, job_id, req.workflow, req.input_text, req.mode, req.image_data)
     
-    return {"job_id": job_id, "status": "queued"}
+    return {"job_id": job_id, "status": "queued", "mode": req.mode}
 
 
 @app.get("/api/queue/{job_id}")
@@ -107,11 +128,14 @@ async def get_job_status(job_id: str):
 @app.post("/api/agent")
 async def run_agent(req: AgentRequest):
     """Run an agentic system to handle a task."""
-    logger.info(f"Agent request: {req.task}")
+    logger.info(f"Agent request: {req.task} (mode: {req.mode}, multimodal: {req.image_data is not None})")
+    
+    # Process multimodal input for the agent as well
+    processed_task = await process_multimodal_input(req.task, req.image_data)
     
     agent = FlouAgent()
     try:
-        response = await agent.run(req.task)
+        response = await agent.run(processed_task, mode=req.mode)
         return response
     except Exception as e:
         logger.error(f"Agent error: {e}", exc_info=True)
@@ -125,13 +149,16 @@ async def process_workflow(req: ProcessRequest):
 
     Runs the full 4-step pipeline and returns the complete result in a flattened format.
     """
-    logger.info(f"Processing request: {len(req.input_text)} chars")
+    logger.info(f"Processing request: {len(req.input_text)} chars (multimodal: {req.image_data is not None})")
 
-    if not req.input_text.strip():
-        return JSONResponse(status_code=400, content={"error": "Input text is required"})
+    if not req.input_text.strip() and not req.image_data:
+        return JSONResponse(status_code=400, content={"error": "Input text or image is required"})
 
     try:
-        result = await run_pipeline(req.input_text)
+        # Step 0: Multimodal processing
+        processed_text = await process_multimodal_input(req.input_text, req.image_data)
+        
+        result = await run_pipeline(processed_text)
         return {
             "success": len(result.errors) == 0,
             "steps_completed": result.steps_completed,
@@ -149,13 +176,16 @@ async def process_workflow(req: ProcessRequest):
 @app.post("/api/process/elsa")
 async def process_workflow_elsa(req: ProcessRequest):
     """Process unstructured text and return ONLY the Elsa workflow representation."""
-    logger.info(f"Processing Elsa request: {len(req.input_text)} chars")
+    logger.info(f"Processing Elsa request: {len(req.input_text)} chars (multimodal: {req.image_data is not None})")
 
-    if not req.input_text.strip():
-        return JSONResponse(status_code=400, content={"error": "Input text is required"})
+    if not req.input_text.strip() and not req.image_data:
+        return JSONResponse(status_code=400, content={"error": "Input text or image is required"})
 
     try:
-        result = await run_pipeline(req.input_text)
+        # Step 0: Multimodal processing
+        processed_text = await process_multimodal_input(req.input_text, req.image_data)
+        
+        result = await run_pipeline(processed_text)
         if result.errors and not result.elsa_workflow:
             return JSONResponse(
                 status_code=500, 
