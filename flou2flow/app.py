@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 import uuid
 
 from .config import settings
+from .models import QueueRequest, AgentRequest, AgentResponse, QARequest
 from .pipeline import run_pipeline
 from .llm import llm_client
 from .agent import FlouAgent
@@ -139,3 +140,20 @@ async def run_agent(req: AgentRequest):
     except Exception as e:
         logger.error(f"Agent error: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"error": f"Agent error: {str(e)}"})
+
+
+@app.post("/api/qa/generate")
+async def generate_qa_questions(req: QARequest):
+    """Generate clarifying questions from process gaps."""
+    logger.info(f"QA request: {len(req.input_text)} chars (multimodal: {req.image_data is not None})")
+    
+    # Process multimodal input if provided
+    processed_text = await process_multimodal_input(req.input_text, req.image_data)
+    
+    agent = FlouAgent()
+    try:
+        response = await agent.generate_questions(processed_text, context=req.context, model=req.model)
+        return response
+    except Exception as e:
+        logger.error(f"QA Agent error: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": f"QA Agent error: {str(e)}"})
