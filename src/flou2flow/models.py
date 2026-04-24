@@ -109,14 +109,6 @@ class PipelineResult(BaseModel):
 
 # ── API Request/Response ───────────────────────────────────────────────────
 
-class ProcessRequest(BaseModel):
-    """API request to process a business need."""
-    input_text: str = Field(description="Unstructured business process description")
-    language: str = Field(default="auto", description="Input language (auto, fr, en)")
-    mode: str = Field(default="auto", description="Execution mode (auto, interactive)")
-    image_data: str | None = Field(default=None, description="Base64 encoded image data for multimodal processing")
-
-
 class QueueRequest(BaseModel):
     """API request for task dispatch."""
     workflow: str = Field(description="One of: full, process, elsa")

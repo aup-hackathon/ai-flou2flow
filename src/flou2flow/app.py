@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 import uuid
 
 from .config import settings
-from .models import ProcessRequest, QueueRequest, AgentRequest, AgentResponse
+from .models import QueueRequest, AgentRequest, AgentResponse
 from .pipeline import run_pipeline
 from .llm import llm_client
 from .agent import FlouAgent
