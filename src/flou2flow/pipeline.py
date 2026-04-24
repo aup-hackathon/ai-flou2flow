@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import traceback
 
 from .llm import llm_client
 from .models import (
@@ -60,7 +61,8 @@ async def run_pipeline(input_text: str) -> PipelineResult:
         logger.info(f"Context extracted: domain={context.domain}, stakeholders={len(context.stakeholders)}")
     except Exception as e:
         logger.error(f"Step 1 failed: {e}")
-        result.errors.append(f"Context understanding failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        result.errors.append(f"Context understanding failed: {str(e) or repr(e)}")
         return result
 
     # ── Step 2: Entity Extraction ──────────────────────────────────────
@@ -75,7 +77,8 @@ async def run_pipeline(input_text: str) -> PipelineResult:
         )
     except Exception as e:
         logger.error(f"Step 2 failed: {e}")
-        result.errors.append(f"Entity extraction failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        result.errors.append(f"Entity extraction failed: {str(e) or repr(e)}")
         return result
 
     # ── Step 3: Flow Construction ──────────────────────────────────────
@@ -87,7 +90,8 @@ async def run_pipeline(input_text: str) -> PipelineResult:
         logger.info(f"Flow constructed: connections={len(flow.connections)}")
     except Exception as e:
         logger.error(f"Step 3 failed: {e}")
-        result.errors.append(f"Flow construction failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        result.errors.append(f"Flow construction failed: {str(e) or repr(e)}")
         return result
 
     # ── Step 4: Workflow Generation ────────────────────────────────────
@@ -151,20 +155,40 @@ async def step_entity_extraction(
     data = llm_client.parse_json_response(response)
 
     # Parse actors
-    actors = [Actor(**a) for a in data.get("actors", [])]
+    actors = []
+    for a in data.get("actors", []):
+        if "id" in a and "name" in a:
+            actors.append(Actor(**a))
 
-    # Parse tasks
-    tasks = [Task(**t) for t in data.get("tasks", [])]
+    # Parse tasks - handle potential mix-ups from small models
+    tasks = []
+    for t in data.get("tasks", []):
+        # Only parse as Task if it has a 'name' (Decisions have 'question')
+        if "name" in t and "id" in t:
+            tasks.append(Task(**t))
+        elif "question" in t and "id" in t:
+            # Mistakenly placed in tasks list
+            conditions = [Condition(**c) for c in t.get("conditions", [])]
+            data.setdefault("decisions", []).append(t)
 
     # Parse decisions with conditions
     decisions = []
+    # Use a set to avoid duplicates if we moved them from tasks
+    seen_decision_ids = set()
+    
     for d in data.get("decisions", []):
-        conditions = [Condition(**c) for c in d.get("conditions", [])]
-        decisions.append(Decision(
-            id=d["id"],
-            question=d["question"],
-            conditions=conditions,
-        ))
+        if "id" in d and d["id"] not in seen_decision_ids:
+            if "question" in d:
+                conditions = [Condition(**c) for c in d.get("conditions", [])]
+                decisions.append(Decision(
+                    id=d["id"],
+                    question=d["question"],
+                    conditions=conditions,
+                ))
+                seen_decision_ids.add(d["id"])
+            elif "name" in d:
+                # Mistakenly placed in decisions list
+                tasks.append(Task(**d))
 
     # Parse data objects
     data_objects = [DataObject(**do) for do in data.get("data_objects", [])]
@@ -228,15 +252,28 @@ async def step_flow_construction(
         for c in data.get("connections", [])
     ]
 
-    # Parse parallel branches
-    parallel = [
-        ParallelBranch(
-            fork_after=p["fork_after"],
-            branches=p.get("branches", []),
-            join_before=p.get("join_before", ""),
-        )
-        for p in data.get("parallel_branches", [])
-    ]
+    # Parse parallel branches - handle flat lists from small models
+    parallel = []
+    for p in data.get("parallel_branches", []):
+        fork_after = p.get("fork_after", "")
+        join_before = p.get("join_before", "")
+        
+        raw_branches = p.get("branches", [])
+        clean_branches = []
+        
+        for b in raw_branches:
+            if isinstance(b, list):
+                clean_branches.append(b)
+            elif isinstance(b, str):
+                # Small model provided a flat list of IDs
+                clean_branches.append([b])
+        
+        if fork_after:
+            parallel.append(ParallelBranch(
+                fork_after=fork_after,
+                branches=clean_branches,
+                join_before=join_before,
+            ))
 
     return ProcessFlow(
         start_event=data.get("start_event", ""),
