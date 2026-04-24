@@ -45,14 +45,11 @@ async def health_check():
 
 
 @app.post("/api/process")
+@app.post("/api/process/full")
 async def process_workflow(req: ProcessRequest):
     """Process unstructured text and generate a workflow.
 
-    Runs the full 4-step pipeline:
-    1. Context Understanding
-    2. Entity Extraction
-    3. Flow Construction
-    4. Workflow Generation (Elsa JSON + Mermaid diagram)
+    Runs the full 4-step pipeline and returns the complete result in a flattened format.
     """
     logger.info(f"Processing request: {len(req.input_text)} chars")
 
@@ -63,15 +60,34 @@ async def process_workflow(req: ProcessRequest):
         result = await run_pipeline(req.input_text)
         return {
             "success": len(result.errors) == 0,
+            "steps_completed": result.steps_completed,
+            "errors": result.errors,
+            "context": result.context.model_dump() if result.context else None,
+            "entities": result.entities.model_dump() if result.entities else None,
+            "flow": result.flow.model_dump() if result.flow else None,
             "elsa_workflow": result.elsa_workflow,
-            "rest": {
-                "context": result.context.model_dump() if result.context else None,
-                "entities": result.entities.model_dump() if result.entities else None,
-                "flow": result.flow.model_dump() if result.flow else None,
-                "steps_completed": result.steps_completed,
-                "errors": result.errors,
-            }
         }
+    except Exception as e:
+        logger.error(f"Pipeline error: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": f"Pipeline error: {str(e)}"})
+
+
+@app.post("/api/process/elsa")
+async def process_workflow_elsa(req: ProcessRequest):
+    """Process unstructured text and return ONLY the Elsa workflow representation."""
+    logger.info(f"Processing Elsa request: {len(req.input_text)} chars")
+
+    if not req.input_text.strip():
+        return JSONResponse(status_code=400, content={"error": "Input text is required"})
+
+    try:
+        result = await run_pipeline(req.input_text)
+        if result.errors and not result.elsa_workflow:
+            return JSONResponse(
+                status_code=500, 
+                content={"error": "Workflow generation failed", "details": result.errors}
+            )
+        return result.elsa_workflow
     except Exception as e:
         logger.error(f"Pipeline error: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"error": f"Pipeline error: {str(e)}"})
