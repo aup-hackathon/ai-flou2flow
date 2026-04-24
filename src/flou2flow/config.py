@@ -28,6 +28,9 @@ class Settings:
     HOST: str = os.getenv("HOST", "0.0.0.0")
     PORT: int = int(os.getenv("PORT", "8000"))
 
+    # NATS
+    NATS_URL: str = os.getenv("NATS_URL", "nats://localhost:4222")
+
     # LLM Parameters
     TEMPERATURE: float = 0.3  # Low temperature for structured output
     MAX_TOKENS: int = 4096

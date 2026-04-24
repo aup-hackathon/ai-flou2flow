@@ -8,12 +8,14 @@ import logging
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import JSONResponse
 import uuid
+import asyncio
 
 from .config import settings
 from .models import QueueRequest, AgentRequest, AgentResponse, QARequest
 from .pipeline import run_pipeline
 from .llm import llm_client
 from .agent import FlouAgent
+from .nats_handler import nats_handler
 
 # Configure logging
 logging.basicConfig(
@@ -21,9 +23,6 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
-
-# Job storage (in-memory for demo)
-JOBS = {}
 
 # Create FastAPI app
 app = FastAPI(
@@ -34,8 +33,29 @@ app = FastAPI(
 )
 
 
+@app.on_event("startup")
+async def startup():
+    """Connect to NATS and start subscribers on startup."""
+    await nats_handler.connect()
+    
+    # Callback to handle tasks from NATS
+    async def nats_task_callback(job_id, data):
+        workflow = data.get("workflow", "full")
+        input_text = data.get("input_text", "")
+        mode = data.get("mode", "auto")
+        image_data = data.get("image_data")
+        model = data.get("model")
+        await run_workflow_task(job_id, workflow, input_text, mode, image_data, model)
+
+    # Start subscriptions
+    await nats_handler.subscribe_tasks(nats_task_callback)
+    await nats_handler.subscribe_preprocess()
+
+
 @app.on_event("shutdown")
 async def shutdown():
+    """Cleanup on shutdown."""
+    await nats_handler.disconnect()
     await llm_client.close()
 
 
@@ -46,6 +66,7 @@ async def health_check():
         "status": "ok",
         "provider": settings.LLM_PROVIDER,
         "model": settings.LLM_MODEL,
+        "nats_connected": nats_handler.is_connected,
     }
 
 
@@ -68,12 +89,14 @@ async def process_multimodal_input(input_text: str, image_data: str | None) -> s
 
 
 async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: str, image_data: str | None = None, model: str | None = None):
-    """Background task to run the workflow."""
-    JOBS[job_id] = {"status": "processing", "workflow": workflow, "mode": mode}
+    """Background task to run the workflow and report progress via NATS."""
     try:
         # Step 0: Multimodal processing
+        await nats_handler.publish_progress(job_id, "multimodal_processing")
         processed_text = await process_multimodal_input(input_text, image_data)
         
+        # Step 1: Run full pipeline
+        await nats_handler.publish_progress(job_id, "pipeline_execution")
         result = await run_pipeline(processed_text, model=model)
         
         if workflow == "full":
@@ -99,30 +122,12 @@ async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: s
         else:
             data = {"error": f"Unknown workflow: {workflow}"}
             
-        JOBS[job_id] = {"status": "completed", "result": data}
+        # Step 2: Publish result
+        await nats_handler.publish_result(job_id, data)
+        
     except Exception as e:
-        logger.error(f"Background task error: {e}", exc_info=True)
-        JOBS[job_id] = {"status": "failed", "error": str(e)}
-
-
-@app.post("/api/queue")
-async def queue_task(req: QueueRequest, background_tasks: BackgroundTasks):
-    """Enqueue a workflow task and return a job ID immediately."""
-    job_id = str(uuid.uuid4())
-    JOBS[job_id] = {"status": "queued", "mode": req.mode}
-    
-    background_tasks.add_task(run_workflow_task, job_id, req.workflow, req.input_text, req.mode, req.image_data, req.model)
-    
-    return {"job_id": job_id, "status": "queued", "mode": req.mode}
-
-
-@app.get("/api/queue/{job_id}")
-async def get_job_status(job_id: str):
-    """Get the status and result of a queued job."""
-    job = JOBS.get(job_id)
-    if not job:
-        return JSONResponse(status_code=404, content={"error": "Job not found"})
-    return job
+        logger.error(f"Task error (job {job_id}): {e}", exc_info=True)
+        await nats_handler.publish_result(job_id, {"error": str(e)})
 
 
 @app.post("/api/agent")
