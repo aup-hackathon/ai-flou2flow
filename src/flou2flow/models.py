@@ -115,6 +115,24 @@ class ProcessRequest(BaseModel):
     language: str = Field(default="auto", description="Input language (auto, fr, en)")
 
 
+class QueueRequest(BaseModel):
+    """API request for task dispatch."""
+    workflow: str = Field(description="One of: full, process, elsa")
+    input_text: str = Field(description="Unstructured business process description")
+
+
+class AgentRequest(BaseModel):
+    """API request for agentic system."""
+    task: str = Field(description="User task for the agentic system")
+
+
+class AgentResponse(BaseModel):
+    """Structured response from the agentic system."""
+    result: str
+    steps_taken: list[str] = Field(default_factory=list)
+    tool_calls: list[dict] = Field(default_factory=list)
+
+
 class StepResult(BaseModel):
     """Result of a single pipeline step."""
     step_name: str

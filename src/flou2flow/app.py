@@ -5,13 +5,15 @@ from __future__ import annotations
 import json
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks
 from fastapi.responses import JSONResponse
+import uuid
 
 from .config import settings
-from .models import ProcessRequest
+from .models import ProcessRequest, QueueRequest, AgentRequest, AgentResponse
 from .pipeline import run_pipeline
 from .llm import llm_client
+from .agent import FlouAgent
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +21,9 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Job storage (in-memory for demo)
+JOBS = {}
 
 # Create FastAPI app
 app = FastAPI(
@@ -42,6 +47,75 @@ async def health_check():
         "provider": settings.LLM_PROVIDER,
         "model": settings.LLM_MODEL,
     }
+
+
+async def run_workflow_task(job_id: str, workflow: str, input_text: str):
+    """Background task to run the workflow."""
+    JOBS[job_id] = {"status": "processing", "workflow": workflow}
+    try:
+        result = await run_pipeline(input_text)
+        
+        if workflow == "full":
+            data = {
+                "success": len(result.errors) == 0,
+                "steps_completed": result.steps_completed,
+                "errors": result.errors,
+                "context": result.context.model_dump() if result.context else None,
+                "entities": result.entities.model_dump() if result.entities else None,
+                "flow": result.flow.model_dump() if result.flow else None,
+                "elsa_workflow": result.elsa_workflow,
+            }
+        elif workflow == "process":
+            data = {
+                "success": len(result.errors) == 0,
+                "steps_completed": [s for s in result.steps_completed if s != "workflow_generation"],
+                "context": result.context.model_dump() if result.context else None,
+                "entities": result.entities.model_dump() if result.entities else None,
+                "flow": result.flow.model_dump() if result.flow else None,
+            }
+        elif workflow == "elsa":
+            data = result.elsa_workflow
+        else:
+            data = {"error": f"Unknown workflow: {workflow}"}
+            
+        JOBS[job_id] = {"status": "completed", "result": data}
+    except Exception as e:
+        logger.error(f"Background task error: {e}", exc_info=True)
+        JOBS[job_id] = {"status": "failed", "error": str(e)}
+
+
+@app.post("/api/queue")
+async def queue_task(req: QueueRequest, background_tasks: BackgroundTasks):
+    """Enqueue a workflow task and return a job ID immediately."""
+    job_id = str(uuid.uuid4())
+    JOBS[job_id] = {"status": "queued"}
+    
+    background_tasks.add_task(run_workflow_task, job_id, req.workflow, req.input_text)
+    
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/api/queue/{job_id}")
+async def get_job_status(job_id: str):
+    """Get the status and result of a queued job."""
+    job = JOBS.get(job_id)
+    if not job:
+        return JSONResponse(status_code=404, content={"error": "Job not found"})
+    return job
+
+
+@app.post("/api/agent")
+async def run_agent(req: AgentRequest):
+    """Run an agentic system to handle a task."""
+    logger.info(f"Agent request: {req.task}")
+    
+    agent = FlouAgent()
+    try:
+        response = await agent.run(req.task)
+        return response
+    except Exception as e:
+        logger.error(f"Agent error: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": f"Agent error: {str(e)}"})
 
 
 @app.post("/api/process")
