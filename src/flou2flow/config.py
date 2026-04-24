@@ -35,10 +35,8 @@ class Settings:
 
     @property
     def api_url(self) -> str:
-        """Get the appropriate API URL based on provider."""
-        if self.LLM_PROVIDER == "ollama":
-            return f"{self.OLLAMA_BASE_URL}/api/chat"
-        return self.MISTRAL_API_URL
+        """Get the Ollama API URL."""
+        return f"{self.OLLAMA_BASE_URL}/api/chat"
 
 
 settings = Settings()
