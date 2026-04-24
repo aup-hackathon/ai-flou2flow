@@ -164,7 +164,7 @@ def generate_mermaid_diagram(
 ) -> str:
     """Generate a Mermaid flowchart diagram from the process flow.
 
-    Returns a Mermaid diagram string that can be rendered in the frontend.
+    Uses subgraphs to simulate BPMN swimlanes for each actor.
     """
     lines = ["graph TD"]
 
@@ -176,32 +176,42 @@ def generate_mermaid_diagram(
     lines.append("    classDef systemTask fill:#06b6d4,stroke:#0891b2,color:#fff,stroke-width:2px")
     lines.append("")
 
-    # Start node
+    # Global elements (Start/End)
     lines.append('    START(("🚀 Début")):::startEnd')
+    lines.append('    END(("✅ Fin")):::startEnd')
+    lines.append("")
 
-    # Task nodes
+    # Group tasks by actor for swimlanes
+    actor_tasks = {}
     for task in entities.tasks:
-        # Escape special characters for Mermaid
-        name = _mermaid_escape(task.name)
-        actor = ""
-        if task.actor_id:
-            actor_obj = next((a for a in entities.actors if a.id == task.actor_id), None)
-            if actor_obj:
-                actor = f"<br/><small>👤 {_mermaid_escape(actor_obj.name)}</small>"
+        actor_id = task.actor_id or "unassigned"
+        if actor_id not in actor_tasks:
+            actor_tasks[actor_id] = []
+        actor_tasks[actor_id].append(task)
 
-        if task.type == "system":
-            lines.append(f'    {task.id}["{name}{actor}"]:::systemTask')
-        else:
-            lines.append(f'    {task.id}["{name}{actor}"]:::humanTask')
-
-    # Decision nodes
+    # Decisions usually span or sit between lanes, we'll keep them in a general pool
+    # or we can try to assign them if they follow a task. For now, general pool is safer.
     for decision in entities.decisions:
         question = _mermaid_escape(decision.question)
         lines.append(f'    {decision.id}{{"{question}"}}:::decision')
 
-    # End node
-    lines.append('    END(("✅ Fin")):::startEnd')
-    lines.append("")
+    # Create subgraphs for each actor (Swimlanes)
+    for actor_id, tasks in actor_tasks.items():
+        actor_name = "Non assigné"
+        if actor_id != "unassigned":
+            actor_obj = next((a for a in entities.actors if a.id == actor_id), None)
+            if actor_obj:
+                actor_name = actor_obj.name
+
+        lines.append(f'    subgraph "{_mermaid_escape(actor_name)}"')
+        for task in tasks:
+            name = _mermaid_escape(task.name)
+            if task.type == "system":
+                lines.append(f'        {task.id}["{name}"]:::systemTask')
+            else:
+                lines.append(f'        {task.id}["{name}"]:::humanTask')
+        lines.append("    end")
+        lines.append("")
 
     # Connections
     # Start → first element
