@@ -103,7 +103,6 @@ class PipelineResult(BaseModel):
     entities: ProcessEntities | None = None
     flow: ProcessFlow | None = None
     elsa_workflow: dict | None = None
-    mermaid_diagram: str = ""
     steps_completed: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
 

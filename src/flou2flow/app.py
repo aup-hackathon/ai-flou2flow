@@ -63,13 +63,14 @@ async def process_workflow(req: ProcessRequest):
         result = await run_pipeline(req.input_text)
         return {
             "success": len(result.errors) == 0,
-            "steps_completed": result.steps_completed,
-            "errors": result.errors,
-            "context": result.context.model_dump() if result.context else None,
-            "entities": result.entities.model_dump() if result.entities else None,
-            "flow": result.flow.model_dump() if result.flow else None,
             "elsa_workflow": result.elsa_workflow,
-            "mermaid_diagram": result.mermaid_diagram,
+            "rest": {
+                "context": result.context.model_dump() if result.context else None,
+                "entities": result.entities.model_dump() if result.entities else None,
+                "flow": result.flow.model_dump() if result.flow else None,
+                "steps_completed": result.steps_completed,
+                "errors": result.errors,
+            }
         }
     except Exception as e:
         logger.error(f"Pipeline error: {e}", exc_info=True)

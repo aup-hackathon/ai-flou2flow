@@ -4,7 +4,7 @@ Implements a 4-step chain-of-thought pipeline:
 1. Context Understanding → Summarize & identify domain
 2. Entity Extraction → Extract actors, tasks, decisions, rules
 3. Flow Construction → Build directed process graph
-4. Workflow Generation → Generate Elsa-compatible JSON + Mermaid diagram
+4. Workflow Generation → Generate Elsa-compatible JSON
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from .prompts import (
     FLOW_SYSTEM_PROMPT,
     FLOW_USER_PROMPT,
 )
-from .exporters import generate_elsa_workflow, generate_mermaid_diagram
+from .exporters import generate_elsa_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -99,8 +99,6 @@ async def run_pipeline(input_text: str) -> PipelineResult:
         logger.info("Step 4: Workflow Generation")
         elsa_wf = generate_elsa_workflow(context, entities, flow)
         result.elsa_workflow = elsa_wf
-        mermaid = generate_mermaid_diagram(entities, flow)
-        result.mermaid_diagram = mermaid
         result.steps_completed.append("workflow_generation")
         logger.info("Workflow generation complete")
     except Exception as e:
