@@ -17,20 +17,17 @@ class NatsHandler:
         self.is_connected = False
 
     async def connect(self):
-        """Connect to NATS server."""
+        """Connect to NATS server with a hard 3-second timeout."""
         try:
-            # Use short timeout and no retries for initial connection to avoid blocking server startup
-            await self.nc.connect(
-                settings.NATS_URL,
-                connect_timeout=2,
-                max_reconnect_attempts=0
+            await asyncio.wait_for(
+                self.nc.connect(settings.NATS_URL),
+                timeout=3.0
             )
             self.is_connected = True
             logger.info(f"Connected to NATS at {settings.NATS_URL}")
-        except Exception as e:
-            logger.warning(f"Failed to connect to NATS at {settings.NATS_URL}: {e}")
+        except (asyncio.TimeoutError, Exception) as e:
+            logger.warning(f"NATS unavailable ({e}). Continuing without NATS.")
             self.is_connected = False
-            # Don't re-raise, let the application continue without NATS
 
     async def disconnect(self):
         """Disconnect from NATS server."""
