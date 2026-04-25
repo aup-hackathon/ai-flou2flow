@@ -1,6 +1,8 @@
 import asyncio
 import json
+
 from flou2flow.pipeline import run_pipeline
+
 
 async def main():
     input_text = "We receive an order, check stock, and then ship the product."

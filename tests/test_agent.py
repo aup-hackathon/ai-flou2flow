@@ -23,7 +23,7 @@ async def test_agent_tool_execution(mocker):
 
     # Mock pipeline step
     mock_step = mocker.patch("flou2flow.agent.step_context_understanding", new_callable=mocker.AsyncMock)
-    
+
     mock_result = mocker.MagicMock()
     mock_result.model_dump.return_value = {"summary": "done"}
     mock_step.return_value = mock_result

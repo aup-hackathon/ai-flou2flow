@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from pydantic import BaseModel, Field
 
 # ── Step 1: Context Understanding ──────────────────────────────────────────
@@ -110,6 +112,7 @@ class PipelineResult(BaseModel):
 
 class QueueRequest(BaseModel):
     """API request for task dispatch."""
+    session_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Session UUID — propagated to NATS payloads")
     workflow: str = Field(description="One of: full, process, elsa")
     input_text: str = Field(description="Unstructured business process description")
     mode: str = Field(default="auto", description="Execution mode (auto, interactive)")
@@ -119,6 +122,7 @@ class QueueRequest(BaseModel):
 
 class AgentRequest(BaseModel):
     """API request for agentic system."""
+    session_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Session UUID — propagated to NATS payloads")
     task: str = Field(description="User task for the agentic system")
     mode: str = Field(default="auto", description="Execution mode (auto, interactive)")
     model: str | None = Field(default=None, description="Optional model override")
@@ -154,3 +158,24 @@ class QAResponse(BaseModel):
     questions: list[str] = Field(description="List of clarifying questions to fill gaps")
     gaps_identified: list[str] = Field(description="List of identified gaps or ambiguities")
     thought: str = Field(description="Agent's reasoning about the gaps")
+
+
+# ── NATS Payload Schemas (for documentation / type hints) ─────────────────
+
+class NatsTaskResult(BaseModel):
+    """Exact schema published to ai.tasks.result (Backend_Issues.md BE-10)."""
+    session_id: str
+    workflow_json: dict          # Elsa-compatible workflow
+    elements_json: dict          # Full pipeline structure (context, entities, flow)
+    ai_summary: str              # Plain-language process summary
+    confidence: float            # 0.0–1.0
+    questions: list[str]         # Unanswered questions (Interactive mode)
+
+
+class NatsTaskProgress(BaseModel):
+    """Exact schema published to ai.tasks.progress (Backend_Issues.md BE-10/BE-16)."""
+    session_id: str
+    agent_name: str              # e.g. "pipeline", "qa_agent"
+    status: str                  # "running" | "completed" | "failed"
+    progress_pct: int            # 0–100
+    message: str = ""

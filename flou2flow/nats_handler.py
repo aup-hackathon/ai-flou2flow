@@ -25,7 +25,7 @@ class NatsHandler:
             )
             self.is_connected = True
             logger.info(f"Connected to NATS at {settings.NATS_URL}")
-        except (asyncio.TimeoutError, Exception) as e:
+        except (TimeoutError, Exception) as e:
             logger.warning(f"NATS unavailable ({e}). Continuing without NATS.")
             self.is_connected = False
 
@@ -36,32 +36,71 @@ class NatsHandler:
             self.is_connected = False
             logger.info("Disconnected from NATS")
 
-    async def publish_result(self, job_id: str, result: dict):
-        """Publish task result to NATS."""
+    async def publish_result(
+        self,
+        session_id: str,
+        workflow_json: dict,
+        elements_json: dict,
+        ai_summary: str,
+        confidence: float,
+        questions: list[str] | None = None,
+    ):
+        """
+        Publish task result to ai.tasks.result.
+
+        Payload schema (as per Backend_Issues.md BE-10 / Project-Plan §4.3):
+            session_id     — UUID of the originating session
+            workflow_json  — Generated Elsa workflow elements
+            elements_json  — Full pipeline structure (context, entities, flow)
+            ai_summary     — Plain-language process summary
+            confidence     — Overall pipeline confidence score (0.0–1.0)
+            questions[]    — Unanswered questions (Interactive mode only)
+        """
         if not self.is_connected:
+            logger.debug(f"NATS not connected — skipping publish_result for session {session_id}")
             return
 
         payload = {
-            "job_id": job_id,
-            "status": "completed",
-            "result": result
+            "session_id": session_id,
+            "workflow_json": workflow_json,
+            "elements_json": elements_json,
+            "ai_summary": ai_summary,
+            "confidence": round(confidence, 4),
+            "questions": questions or [],
         }
         await self.nc.publish("ai.tasks.result", json.dumps(payload).encode())
-        logger.info(f"Published result for job {job_id} to ai.tasks.result")
+        logger.info(f"Published result for session {session_id} to ai.tasks.result")
 
-    async def publish_progress(self, job_id: str, step: str, data: dict = None):
-        """Publish task progress to NATS."""
+    async def publish_progress(
+        self,
+        session_id: str,
+        agent_name: str,
+        status: str,          # "running" | "completed" | "failed"
+        progress_pct: int,    # 0–100
+        message: str = "",
+    ):
+        """
+        Publish task progress to ai.tasks.progress.
+
+        Payload schema (as per Backend_Issues.md BE-10/BE-16 / Project-Plan §4.3):
+            session_id   — UUID of the originating session
+            agent_name   — Which agent is running (e.g. "pipeline", "qa_agent")
+            status       — "running" | "completed" | "failed"
+            progress_pct — Completion percentage (0–100)
+            message      — Optional human-readable status message
+        """
         if not self.is_connected:
             return
 
         payload = {
-            "job_id": job_id,
-            "status": "processing",
-            "step": step,
-            "data": data
+            "session_id": session_id,
+            "agent_name": agent_name,
+            "status": status,
+            "progress_pct": max(0, min(100, progress_pct)),
+            "message": message,
         }
         await self.nc.publish("ai.tasks.progress", json.dumps(payload).encode())
-        logger.debug(f"Published progress for job {job_id} (step: {step})")
+        logger.debug(f"Progress [{agent_name}] {progress_pct}% — {message} (session {session_id})")
 
     async def subscribe_tasks(self, callback):
         """Subscribe to ai.tasks.new."""
@@ -73,11 +112,11 @@ class NatsHandler:
             data = json.loads(msg.data.decode())
             logger.info(f"Received message on {subject}")
 
-            # Generate a job_id if not provided
-            job_id = data.get("job_id", str(uuid.uuid4()))
+            # Use session_id as the primary identifier (fall back to new UUID)
+            session_id = data.get("session_id", str(uuid.uuid4()))
 
             # Start background task via callback
-            asyncio.create_task(callback(job_id, data))
+            asyncio.create_task(callback(session_id, data))
 
         await self.nc.subscribe("ai.tasks.new", cb=message_handler)
         logger.info("Subscribed to ai.tasks.new")
@@ -90,11 +129,14 @@ class NatsHandler:
         async def preprocess_handler(msg):
             data = json.loads(msg.data.decode())
             logger.info(f"Received preprocess request for document: {data.get('document_id')}")
-            # Placeholder for actual preprocessing logic
-            await self.nc.publish("document.preprocessed", json.dumps({"status": "ok", "document_id": data.get("document_id")}).encode())
+            await self.nc.publish(
+                "document.preprocessed",
+                json.dumps({"status": "ok", "document_id": data.get("document_id")}).encode()
+            )
 
         await self.nc.subscribe("document.preprocess", cb=preprocess_handler)
         logger.info("Subscribed to document.preprocess")
+
 
 # Global NATS handler instance
 nats_handler = NatsHandler()

@@ -13,7 +13,7 @@ from .config import settings
 from .llm import llm_client
 from .models import AgentRequest, QARequest, QueueRequest
 from .nats_handler import nats_handler
-from .pipeline import run_pipeline
+from .pipeline import PipelineResult, run_pipeline
 
 # Configure logging
 logging.basicConfig(
@@ -23,36 +23,61 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+def _compute_confidence(result: PipelineResult) -> float:
+    """
+    Derive a confidence score (0.0–1.0) from the pipeline result.
+    - 4 possible steps → each adds 0.25
+    - Subtract 0.1 per error, floored at 0.0
+    """
+    steps_score = len(result.steps_completed) / 4.0
+    error_penalty = len(result.errors) * 0.1
+    return max(0.0, min(1.0, steps_score - error_penalty))
+
+
+def _build_elements_json(result: PipelineResult) -> dict:
+    """Build the full elements_json structure the backend expects."""
+    return {
+        "context": result.context.model_dump() if result.context else None,
+        "entities": result.entities.model_dump() if result.entities else None,
+        "flow": result.flow.model_dump() if result.flow else None,
+        "steps_completed": result.steps_completed,
+        "errors": result.errors,
+    }
+
+
+# ─── Lifespan ──────────────────────────────────────────────────────────────────
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Connect to NATS and start subscribers on startup."""
     try:
         await nats_handler.connect()
 
-        # Callback to handle tasks from NATS
-        async def nats_task_callback(job_id, data):
+        # Callback to handle tasks from NATS (ai.tasks.new)
+        async def nats_task_callback(session_id: str, data: dict):
             workflow = data.get("workflow", "full")
             input_text = data.get("input_text", "")
             mode = data.get("mode", "auto")
             image_data = data.get("image_data")
             model = data.get("model")
-            await run_workflow_task(job_id, workflow, input_text, mode, image_data, model)
+            await run_workflow_task(session_id, workflow, input_text, mode, image_data, model)
 
-        # Start subscriptions
         await nats_handler.subscribe_tasks(nats_task_callback)
         await nats_handler.subscribe_preprocess()
         logger.info("NATS connected and subscribers started.")
     except Exception as e:
-        logger.warning(f"Failed to connect to NATS: {e}. Some background features may be unavailable.")
+        logger.warning(f"Failed to connect to NATS: {e}. Continuing without NATS.")
 
     yield
 
-    """Cleanup on shutdown."""
     await nats_handler.disconnect()
     await llm_client.close()
 
 
-# Create FastAPI app
+# ─── App ──────────────────────────────────────────────────────────────────────
+
 app = FastAPI(
     title="Flou2Flow",
     description="Transform fuzzy business needs into executable workflows using Mistral 7B",
@@ -61,6 +86,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @app.get("/api/health")
 async def health_check():
@@ -82,85 +109,150 @@ async def process_multimodal_input(input_text: str, image_data: str | None) -> s
         logger.info("Analyzing multimodal input (image)...")
         description = await llm_client.vision_chat(
             prompt="Analyze this process diagram or whiteboard drawing. Describe the actors, tasks, and flow in detail so it can be transformed into a structured workflow.",
-            image_data=image_data
+            image_data=image_data,
         )
-        enriched_text = f"{input_text}\n\n[Diagram Description]:\n{description}"
-        return enriched_text
+        return f"{input_text}\n\n[Diagram Description]:\n{description}"
     except Exception as e:
         logger.error(f"Multimodal analysis failed: {e}")
         return f"{input_text}\n\n(Note: Image analysis failed: {str(e)})"
 
 
-async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: str, image_data: str | None = None, model: str | None = None):
-    """Background task to run the workflow and report progress via NATS."""
+async def run_workflow_task(
+    session_id: str,
+    workflow: str,
+    input_text: str,
+    mode: str,
+    image_data: str | None = None,
+    model: str | None = None,
+):
+    """
+    Background task: run the pipeline and publish progress + result to NATS
+    using the schema required by the backend (BE-10 / §4.3).
+    """
     try:
-        # Step 0: Multimodal processing
-        await nats_handler.publish_progress(job_id, "multimodal_processing")
+        # ── Step 0: Multimodal ─────────────────────────────────
+        await nats_handler.publish_progress(
+            session_id=session_id,
+            agent_name="pipeline",
+            status="running",
+            progress_pct=10,
+            message="Processing input (multimodal check)",
+        )
         processed_text = await process_multimodal_input(input_text, image_data)
 
-        # Step 1: Run full pipeline
-        await nats_handler.publish_progress(job_id, "pipeline_execution")
+        # ── Step 1–4: Pipeline ─────────────────────────────────
+        await nats_handler.publish_progress(
+            session_id=session_id,
+            agent_name="pipeline",
+            status="running",
+            progress_pct=30,
+            message="Running context understanding",
+        )
         result = await run_pipeline(processed_text, model=model)
 
-        if workflow == "full":
-            data = {
-                "success": len(result.errors) == 0,
-                "steps_completed": result.steps_completed,
-                "errors": result.errors,
-                "context": result.context.model_dump() if result.context else None,
-                "entities": result.entities.model_dump() if result.entities else None,
-                "flow": result.flow.model_dump() if result.flow else None,
-                "elsa_workflow": result.elsa_workflow,
-            }
-        elif workflow == "process":
-            data = {
-                "success": len(result.errors) == 0,
-                "steps_completed": [s for s in result.steps_completed if s != "workflow_generation"],
-                "context": result.context.model_dump() if result.context else None,
-                "entities": result.entities.model_dump() if result.entities else None,
-                "flow": result.flow.model_dump() if result.flow else None,
-            }
-        elif workflow == "elsa":
-            data = result.elsa_workflow
-        else:
-            data = {"error": f"Unknown workflow: {workflow}"}
+        await nats_handler.publish_progress(
+            session_id=session_id,
+            agent_name="pipeline",
+            status="running",
+            progress_pct=85,
+            message=f"Pipeline done — {len(result.steps_completed)} steps completed",
+        )
 
-        # Step 2: Publish result
-        await nats_handler.publish_result(job_id, data)
+        # ── Interactive mode: generate questions ───────────────
+        questions: list[str] = []
+        if mode == "interactive" and result.context:
+            try:
+                agent = FlouAgent()
+                qa = await agent.generate_questions(processed_text, model=model)
+                questions = qa.questions
+            except Exception as qa_err:
+                logger.warning(f"QA agent failed: {qa_err}")
+
+        # ── Build result payload ───────────────────────────────
+        confidence = _compute_confidence(result)
+        elements_json = _build_elements_json(result)
+        ai_summary = result.context.summary if result.context else ""
+        workflow_json = result.elsa_workflow or {}
+
+        await nats_handler.publish_result(
+            session_id=session_id,
+            workflow_json=workflow_json,
+            elements_json=elements_json,
+            ai_summary=ai_summary,
+            confidence=confidence,
+            questions=questions,
+        )
+
+        await nats_handler.publish_progress(
+            session_id=session_id,
+            agent_name="pipeline",
+            status="completed",
+            progress_pct=100,
+            message="Workflow generation complete",
+        )
 
     except Exception as e:
-        logger.error(f"Task error (job {job_id}): {e}", exc_info=True)
-        await nats_handler.publish_result(job_id, {"error": str(e)})
+        logger.error(f"Task error (session {session_id}): {e}", exc_info=True)
+        await nats_handler.publish_progress(
+            session_id=session_id,
+            agent_name="pipeline",
+            status="failed",
+            progress_pct=100,
+            message=str(e),
+        )
 
 
 @app.post("/api/workflow/generate")
 async def generate_workflow_sync(req: QueueRequest):
-    """Synchronously generate a workflow and return the result."""
-    logger.info(f"Sync workflow request: {req.workflow} (model: {req.model})")
-    
+    """
+    Synchronous endpoint: run pipeline and return result directly.
+    Also publishes to NATS with the correct backend schema.
+    """
+    logger.info(f"Sync workflow [{req.workflow}] session={req.session_id} model={req.model}")
+
     try:
-        # Step 0: Multimodal processing
         processed_text = await process_multimodal_input(req.input_text, req.image_data)
-        
-        # Step 1: Run pipeline
         result = await run_pipeline(processed_text, model=req.model)
-        
+
+        confidence = _compute_confidence(result)
+        elements_json = _build_elements_json(result)
+        ai_summary = result.context.summary if result.context else ""
+        workflow_json = result.elsa_workflow or {}
+
+        # Publish to NATS so the backend receives it even on HTTP calls
+        questions: list[str] = []
+        if req.mode == "interactive" and result.context:
+            try:
+                agent = FlouAgent()
+                qa = await agent.generate_questions(processed_text, model=req.model)
+                questions = qa.questions
+            except Exception as qa_err:
+                logger.warning(f"QA agent failed: {qa_err}")
+
+        await nats_handler.publish_result(
+            session_id=req.session_id,
+            workflow_json=workflow_json,
+            elements_json=elements_json,
+            ai_summary=ai_summary,
+            confidence=confidence,
+            questions=questions,
+        )
+
+        # HTTP response — return the field the user requested
         if req.workflow == "elsa":
-            return result.elsa_workflow
+            return workflow_json
         elif req.workflow == "process":
+            return elements_json
+        else:  # full
             return {
-                "context": result.context,
-                "entities": result.entities,
-                "flow": result.flow
+                "session_id": req.session_id,
+                "workflow_json": workflow_json,
+                "elements_json": elements_json,
+                "ai_summary": ai_summary,
+                "confidence": confidence,
+                "questions": questions,
             }
-        else: # full
-            return {
-                "elsa_workflow": result.elsa_workflow,
-                "context": result.context,
-                "entities": result.entities,
-                "flow": result.flow
-            }
-            
+
     except Exception as e:
         logger.error(f"Sync workflow generation failed: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -169,17 +261,38 @@ async def generate_workflow_sync(req: QueueRequest):
 @app.post("/api/agent")
 async def run_agent(req: AgentRequest):
     """Run an agentic system to handle a task."""
-    logger.info(f"Agent request: {req.task} (mode: {req.mode}, multimodal: {req.image_data is not None})")
+    logger.info(f"Agent request: {req.task} (mode: {req.mode}, session={req.session_id})")
 
-    # Process multimodal input for the agent as well
     processed_task = await process_multimodal_input(req.task, req.image_data)
-
     agent = FlouAgent()
+
     try:
+        await nats_handler.publish_progress(
+            session_id=req.session_id,
+            agent_name="flou_agent",
+            status="running",
+            progress_pct=10,
+            message="Agent started",
+        )
         response = await agent.run(processed_task, mode=req.mode, model=req.model)
+
+        await nats_handler.publish_progress(
+            session_id=req.session_id,
+            agent_name="flou_agent",
+            status="completed",
+            progress_pct=100,
+            message="Agent completed",
+        )
         return response
     except Exception as e:
         logger.error(f"Agent error: {e}", exc_info=True)
+        await nats_handler.publish_progress(
+            session_id=req.session_id,
+            agent_name="flou_agent",
+            status="failed",
+            progress_pct=100,
+            message=str(e),
+        )
         return JSONResponse(status_code=500, content={"error": f"Agent error: {str(e)}"})
 
 
@@ -188,10 +301,9 @@ async def generate_qa_questions(req: QARequest):
     """Generate clarifying questions from process gaps."""
     logger.info(f"QA request: {len(req.input_text)} chars (multimodal: {req.image_data is not None})")
 
-    # Process multimodal input if provided
     processed_text = await process_multimodal_input(req.input_text, req.image_data)
-
     agent = FlouAgent()
+
     try:
         response = await agent.generate_questions(processed_text, context=req.context, model=req.model)
         return response
