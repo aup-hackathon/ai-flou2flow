@@ -22,6 +22,7 @@ class ProcessContext(BaseModel):
 class Actor(BaseModel):
     """A role or person involved in the process."""
     id: str
+    hash: str = Field(default_factory=lambda: uuid.uuid4().hex, description="Unique hashed identifier")
     name: str
     role: str = ""
     description: str = ""
@@ -49,6 +50,7 @@ class Decision(BaseModel):
 
 class Condition(BaseModel):
     """A condition branch from a decision."""
+    hash: str = Field(default_factory=lambda: uuid.uuid4().hex, description="Unique hashed identifier")
     label: str
     target_id: str
 
@@ -56,6 +58,7 @@ class Condition(BaseModel):
 class DataObject(BaseModel):
     """A data object or document used in the process."""
     id: str
+    hash: str = Field(default_factory=lambda: uuid.uuid4().hex, description="Unique hashed identifier")
     name: str
     type: str = "document"  # document, form, email, data
 
@@ -63,6 +66,7 @@ class DataObject(BaseModel):
 class BusinessRule(BaseModel):
     """A business rule or constraint."""
     id: str
+    hash: str = Field(default_factory=lambda: uuid.uuid4().hex, description="Unique hashed identifier")
     description: str
     applies_to: str = ""
 
@@ -80,6 +84,7 @@ class ProcessEntities(BaseModel):
 
 class FlowConnection(BaseModel):
     """A connection between two elements in the flow."""
+    hash: str = Field(default_factory=lambda: uuid.uuid4().hex, description="Unique hashed identifier")
     from_id: str
     to_id: str
     condition: str = ""  # Optional condition label
@@ -87,6 +92,7 @@ class FlowConnection(BaseModel):
 
 class ParallelBranch(BaseModel):
     """A parallel branch in the flow."""
+    hash: str = Field(default_factory=lambda: uuid.uuid4().hex, description="Unique hashed identifier")
     fork_after: str
     branches: list[list[str]] = Field(default_factory=list)
     join_before: str = ""
