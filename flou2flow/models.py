@@ -126,10 +126,9 @@ class QueueRequest(BaseModel):
     workflow: str = Field(description="One of: full, process, elsa")
     input_text: str = Field(description="Unstructured business process description")
     mode: str = Field(default="auto", description="Execution mode (auto, interactive)")
-    model: str | None = Field(default=None, description="Optional model override (e.g., 'elsa', 'mistral')")
-    image_data: str | None = Field(default=None, description="Base64 encoded image data")
-    voice_data: str | None = Field(default=None, description="Base64 encoded audio data (mp3, wav, etc.)")
-    pdf_data: str | None = Field(default=None, description="Base64 encoded PDF document")
+    file_data: str | None = Field(default=None, description="Base64 encoded file content")
+    file_name: str | None = Field(default=None, description="Name of the file (e.g., process.pdf, note.mp3)")
+
 
 
 class AgentRequest(BaseModel):
@@ -137,10 +136,9 @@ class AgentRequest(BaseModel):
     session_id: str = Field(default_factory=lambda: str(uuid.uuid4()), description="Session UUID — propagated to NATS payloads")
     task: str = Field(description="User task for the agentic system")
     mode: str = Field(default="auto", description="Execution mode (auto, interactive)")
-    model: str | None = Field(default=None, description="Optional model override")
-    image_data: str | None = Field(default=None, description="Base64 encoded image data")
-    voice_data: str | None = Field(default=None, description="Base64 encoded audio data")
-    pdf_data: str | None = Field(default=None, description="Base64 encoded PDF document")
+    file_data: str | None = Field(default=None, description="Base64 encoded file content")
+    file_name: str | None = Field(default=None, description="Name of the file")
+
 
 
 class AgentResponse(BaseModel):
@@ -163,10 +161,9 @@ class QARequest(BaseModel):
     """API request for Q&A Agent."""
     input_text: str = Field(description="Unstructured business process description")
     context: dict | None = Field(default=None, description="Current process context if any")
-    model: str | None = Field(default=None, description="Optional model override")
-    image_data: str | None = Field(default=None, description="Base64 encoded image data")
-    voice_data: str | None = Field(default=None, description="Base64 encoded audio data")
-    pdf_data: str | None = Field(default=None, description="Base64 encoded PDF document")
+    file_data: str | None = Field(default=None, description="Base64 encoded file content")
+    file_name: str | None = Field(default=None, description="Name of the file")
+
 
 
 class QAResponse(BaseModel):
