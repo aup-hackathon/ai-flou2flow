@@ -2,17 +2,16 @@
 
 import json
 import logging
-import traceback
-from typing import Any, Dict, List
+from typing import Any
 
+from .exporters import generate_elsa_workflow
 from .llm import llm_client
+from .models import AgentResponse, ProcessContext, ProcessEntities, ProcessFlow, QAResponse
 from .pipeline import (
     step_context_understanding,
     step_entity_extraction,
     step_flow_construction,
 )
-from .exporters import generate_elsa_workflow
-from .models import AgentResponse, ProcessContext, ProcessEntities, ProcessFlow, QAResponse
 from .prompts import QA_SYSTEM_PROMPT, QA_USER_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ class FlouAgent:
         steps_taken = []
         tool_calls = []
         context = {}
-        
+
         # Adjust system prompt based on mode
         mode_instruction = ""
         if mode == "interactive":
@@ -62,7 +61,7 @@ class FlouAgent:
 
         current_system_prompt = AGENT_SYSTEM_PROMPT + mode_instruction
         current_input = f"User Task: {task}"
-        
+
         max_iterations = 10
         for i in range(max_iterations):
             response_text = await llm_client.chat(
@@ -71,7 +70,7 @@ class FlouAgent:
                 json_mode=True,
                 model=model
             )
-            
+
             try:
                 data = llm_client.parse_json_response(response_text)
             except Exception as e:
@@ -81,15 +80,15 @@ class FlouAgent:
             thought = data.get("thought", "")
             if thought:
                 steps_taken.append(thought)
-            
+
             tool_call = data.get("tool_call")
             if tool_call:
                 tool_name = tool_call.get("tool")
                 args = tool_call.get("args", {})
                 tool_calls.append({"tool": tool_name, "args": args})
-                
+
                 logger.info(f"Agent calling tool: {tool_name}")
-                
+
                 try:
                     result = await self.execute_tool(tool_name, args, context, model=model)
                     current_input = f"Tool '{tool_name}' returned: {json.dumps(result, ensure_ascii=False)}"
@@ -103,7 +102,7 @@ class FlouAgent:
                 except Exception as e:
                     logger.error(f"Tool execution failed: {e}")
                     current_input = f"Tool '{tool_name}' failed with error: {str(e)}"
-            
+
             final_result = data.get("final_result")
             if final_result:
                 return AgentResponse(
@@ -124,28 +123,28 @@ class FlouAgent:
             input_text=input_text,
             context=json.dumps(context, ensure_ascii=False) if context else "None"
         )
-        
+
         response_text = await llm_client.chat(
             system_prompt=QA_SYSTEM_PROMPT,
             user_prompt=user_prompt,
             json_mode=True,
             model=model
         )
-        
+
         data = llm_client.parse_json_response(response_text)
-        
+
         return QAResponse(
             questions=data.get("questions", []),
             gaps_identified=data.get("gaps_identified", []),
             thought=data.get("thought", "")
         )
 
-    async def execute_tool(self, tool_name: str, args: Dict[str, Any], context: Dict[str, Any], model: str | None = None) -> Any:
+    async def execute_tool(self, tool_name: str, args: dict[str, Any], context: dict[str, Any], model: str | None = None) -> Any:
         if tool_name == "analyze_context":
             input_text = args.get("input_text")
             res = await step_context_understanding(input_text, model=model)
             return res.model_dump()
-        
+
         elif tool_name == "extract_entities":
             input_text = args.get("input_text")
             ctx_data = args.get("context") or context.get("context")
@@ -154,7 +153,7 @@ class FlouAgent:
             ctx = ProcessContext(**ctx_data)
             res = await step_entity_extraction(input_text, ctx, model=model)
             return res.model_dump()
-        
+
         elif tool_name == "construct_flow":
             ctx_data = args.get("context") or context.get("context")
             ent_data = args.get("entities") or context.get("entities")
@@ -164,7 +163,7 @@ class FlouAgent:
             ent = ProcessEntities(**ent_data)
             res = await step_flow_construction(ctx, ent, model=model)
             return res.model_dump()
-        
+
         elif tool_name == "generate_elsa":
             ctx_data = args.get("context") or context.get("context")
             ent_data = args.get("entities") or context.get("entities")
@@ -176,6 +175,6 @@ class FlouAgent:
             flow = ProcessFlow(**flow_data)
             res = generate_elsa_workflow(ctx, ent, flow)
             return res
-        
+
         else:
             raise ValueError(f"Unknown tool: {tool_name}")

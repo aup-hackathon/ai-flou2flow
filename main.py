@@ -1,6 +1,7 @@
 """Flou2Flow — Transform fuzzy business needs into executable workflows."""
 
 import uvicorn
+
 from flou2flow.config import settings
 
 if __name__ == "__main__":

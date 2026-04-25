@@ -1,18 +1,19 @@
 """NATS messaging handler for Flou2Flow."""
 
+import asyncio
 import json
 import logging
-import asyncio
-from nats.aio.client import Client as NATS
-from .config import settings
-from .models import QueueRequest
 import uuid
+
+from nats.aio.client import Client as NatsClient
+
+from .config import settings
 
 logger = logging.getLogger(__name__)
 
 class NatsHandler:
     def __init__(self):
-        self.nc = NATS()
+        self.nc = NatsClient()
         self.is_connected = False
 
     async def connect(self):
@@ -36,7 +37,7 @@ class NatsHandler:
         """Publish task result to NATS."""
         if not self.is_connected:
             return
-        
+
         payload = {
             "job_id": job_id,
             "status": "completed",
@@ -49,7 +50,7 @@ class NatsHandler:
         """Publish task progress to NATS."""
         if not self.is_connected:
             return
-        
+
         payload = {
             "job_id": job_id,
             "status": "processing",
@@ -66,13 +67,12 @@ class NatsHandler:
 
         async def message_handler(msg):
             subject = msg.subject
-            reply = msg.reply
             data = json.loads(msg.data.decode())
             logger.info(f"Received message on {subject}")
-            
+
             # Generate a job_id if not provided
             job_id = data.get("job_id", str(uuid.uuid4()))
-            
+
             # Start background task via callback
             asyncio.create_task(callback(job_id, data))
 

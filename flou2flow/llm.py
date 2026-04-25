@@ -128,7 +128,7 @@ class LLMClient:
     ) -> str:
         """Analyze an image using a vision model."""
         target_model = model or settings.VISION_MODEL
-        
+
         if self.provider == "ollama":
             payload = {
                 "model": target_model,
@@ -141,7 +141,7 @@ class LLMClient:
                 ],
                 "stream": False,
             }
-            
+
             logger.info(f"Calling Ollama Vision with model={target_model}")
             response = await self.client.post(
                 f"{settings.OLLAMA_BASE_URL}/api/chat",

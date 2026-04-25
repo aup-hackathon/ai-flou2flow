@@ -2,20 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import logging
 
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-import uuid
-import asyncio
 
-from .config import settings
-from .models import QueueRequest, AgentRequest, AgentResponse, QARequest
-from .pipeline import run_pipeline
-from .llm import llm_client
 from .agent import FlouAgent
+from .config import settings
+from .llm import llm_client
+from .models import AgentRequest, QARequest
 from .nats_handler import nats_handler
+from .pipeline import run_pipeline
 
 # Configure logging
 logging.basicConfig(
@@ -37,7 +34,7 @@ app = FastAPI(
 async def startup():
     """Connect to NATS and start subscribers on startup."""
     await nats_handler.connect()
-    
+
     # Callback to handle tasks from NATS
     async def nats_task_callback(job_id, data):
         workflow = data.get("workflow", "full")
@@ -74,7 +71,7 @@ async def process_multimodal_input(input_text: str, image_data: str | None) -> s
     """If image data is provided, analyze it and enrich the input text."""
     if not image_data:
         return input_text
-    
+
     try:
         logger.info("Analyzing multimodal input (image)...")
         description = await llm_client.vision_chat(
@@ -94,11 +91,11 @@ async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: s
         # Step 0: Multimodal processing
         await nats_handler.publish_progress(job_id, "multimodal_processing")
         processed_text = await process_multimodal_input(input_text, image_data)
-        
+
         # Step 1: Run full pipeline
         await nats_handler.publish_progress(job_id, "pipeline_execution")
         result = await run_pipeline(processed_text, model=model)
-        
+
         if workflow == "full":
             data = {
                 "success": len(result.errors) == 0,
@@ -121,10 +118,10 @@ async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: s
             data = result.elsa_workflow
         else:
             data = {"error": f"Unknown workflow: {workflow}"}
-            
+
         # Step 2: Publish result
         await nats_handler.publish_result(job_id, data)
-        
+
     except Exception as e:
         logger.error(f"Task error (job {job_id}): {e}", exc_info=True)
         await nats_handler.publish_result(job_id, {"error": str(e)})
@@ -134,10 +131,10 @@ async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: s
 async def run_agent(req: AgentRequest):
     """Run an agentic system to handle a task."""
     logger.info(f"Agent request: {req.task} (mode: {req.mode}, multimodal: {req.image_data is not None})")
-    
+
     # Process multimodal input for the agent as well
     processed_task = await process_multimodal_input(req.task, req.image_data)
-    
+
     agent = FlouAgent()
     try:
         response = await agent.run(processed_task, mode=req.mode, model=req.model)
@@ -151,10 +148,10 @@ async def run_agent(req: AgentRequest):
 async def generate_qa_questions(req: QARequest):
     """Generate clarifying questions from process gaps."""
     logger.info(f"QA request: {len(req.input_text)} chars (multimodal: {req.image_data is not None})")
-    
+
     # Process multimodal input if provided
     processed_text = await process_multimodal_input(req.input_text, req.image_data)
-    
+
     agent = FlouAgent()
     try:
         response = await agent.generate_questions(processed_text, context=req.context, model=req.model)

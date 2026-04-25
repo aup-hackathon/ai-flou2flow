@@ -13,6 +13,7 @@ import json
 import logging
 import traceback
 
+from .exporters import generate_elsa_workflow
 from .llm import llm_client
 from .models import (
     Actor,
@@ -36,7 +37,6 @@ from .prompts import (
     FLOW_SYSTEM_PROMPT,
     FLOW_USER_PROMPT,
 )
-from .exporters import generate_elsa_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ async def step_entity_extraction(
     decisions = []
     # Use a set to avoid duplicates if we moved them from tasks
     seen_decision_ids = set()
-    
+
     for d in data.get("decisions", []):
         if "id" in d and d["id"] not in seen_decision_ids:
             if "question" in d:
@@ -260,17 +260,17 @@ async def step_flow_construction(
     for p in data.get("parallel_branches", []):
         fork_after = p.get("fork_after", "")
         join_before = p.get("join_before", "")
-        
+
         raw_branches = p.get("branches", [])
         clean_branches = []
-        
+
         for b in raw_branches:
             if isinstance(b, list):
                 clean_branches.append(b)
             elif isinstance(b, str):
                 # Small model provided a flat list of IDs
                 clean_branches.append([b])
-        
+
         if fork_after:
             parallel.append(ParallelBranch(
                 fork_after=fork_after,
