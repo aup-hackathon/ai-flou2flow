@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from .agent import FlouAgent
 from .config import settings
 from .llm import llm_client
+from .mermaid import generate_mermaid_diagram
 from .models import AgentRequest, QARequest, QueueRequest
 from .nats_handler import nats_handler
 from .pipeline import PipelineResult, run_pipeline
@@ -238,19 +239,37 @@ async def generate_workflow_sync(req: QueueRequest):
             questions=questions,
         )
 
-        # HTTP response — return the field the user requested
+        # HTTP response — return the shape the user requested
         if req.workflow == "elsa":
             return workflow_json
+
         elif req.workflow == "process":
-            return elements_json
-        else:  # full
             return {
-                "session_id": req.session_id,
-                "workflow_json": workflow_json,
-                "elements_json": elements_json,
-                "ai_summary": ai_summary,
-                "confidence": confidence,
-                "questions": questions,
+                "success": len(result.errors) == 0,
+                "steps_completed": [s for s in result.steps_completed if s != "workflow_generation"],
+                "errors": result.errors,
+                "context": result.context.model_dump() if result.context else None,
+                "entities": result.entities.model_dump() if result.entities else None,
+                "flow": result.flow.model_dump() if result.flow else None,
+            }
+
+        else:  # full — matches the confirmed schema
+            mermaid_diagram = ""
+            if result.entities and result.flow:
+                try:
+                    mermaid_diagram = generate_mermaid_diagram(result.entities, result.flow)
+                except Exception as md_err:
+                    logger.warning(f"Mermaid generation failed: {md_err}")
+
+            return {
+                "success": len(result.errors) == 0,
+                "steps_completed": result.steps_completed,
+                "errors": result.errors,
+                "context": result.context.model_dump() if result.context else None,
+                "entities": result.entities.model_dump() if result.entities else None,
+                "flow": result.flow.model_dump() if result.flow else None,
+                "elsa_workflow": workflow_json,
+                "mermaid_diagram": mermaid_diagram,
             }
 
     except Exception as e:
