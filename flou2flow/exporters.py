@@ -49,6 +49,7 @@ def generate_elsa_workflow(
                 "description": task.description,
                 "actor": actor_name,
                 "taskType": task.type,
+                "element_id": task.id,
             },
             "properties": {
                 "taskName": {"expression": {"type": "Literal", "value": task.name}},
@@ -65,6 +66,7 @@ def generate_elsa_workflow(
             "metadata": {
                 "displayName": decision.question,
                 "description": f"Decision: {decision.question}",
+                "element_id": decision.id,
             },
             "properties": {
                 "condition": {
