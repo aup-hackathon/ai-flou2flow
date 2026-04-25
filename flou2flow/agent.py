@@ -63,7 +63,7 @@ class FlouAgent:
         current_input = f"User Task: {task}"
 
         max_iterations = 10
-        for i in range(max_iterations):
+        for _ in range(max_iterations):
             response_text = await llm_client.chat(
                 system_prompt=current_system_prompt,
                 user_prompt=current_input,

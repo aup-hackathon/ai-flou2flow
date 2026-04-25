@@ -162,8 +162,12 @@ class LLMClient:
         # Handle markdown code blocks
         if text.startswith("```"):
             # Remove opening ```json or ```
-            first_newline = text.index("\n")
-            text = text[first_newline + 1:]
+            try:
+                first_newline = text.index("\n")
+                text = text[first_newline + 1:]
+            except ValueError:
+                text = text[3:]
+            
             # Remove closing ```
             if text.endswith("```"):
                 text = text[:-3].strip()
@@ -179,9 +183,9 @@ class LLMClient:
             if start != -1 and end > start:
                 try:
                     return json.loads(text[start:end])
-                except json.JSONDecodeError:
-                    pass
-            raise ValueError(f"Could not parse JSON from LLM response: {e}")
+                except json.JSONDecodeError as inner_e:
+                    raise ValueError(f"Could not parse JSON from LLM response: {e}") from inner_e
+            raise ValueError(f"Could not parse JSON from LLM response: {e}") from e
 
     async def close(self):
         """Close the HTTP client."""
