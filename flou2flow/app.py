@@ -146,7 +146,7 @@ async def process_multimodal_input(
         response = await llm_client.chat(
             system_prompt=MULTIMODAL_SYSTEM_PROMPT,
             user_prompt=user_prompt,
-            model=model,
+            model=model or settings.CLEANING_MODEL,
             json_mode=True,
             response_schema=MultimodalResult,
         )

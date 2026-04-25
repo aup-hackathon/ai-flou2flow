@@ -164,7 +164,9 @@ class QARequest(BaseModel):
     input_text: str = Field(description="Unstructured business process description")
     context: dict | None = Field(default=None, description="Current process context if any")
     model: str | None = Field(default=None, description="Optional model override")
-    image_data: str | None = Field(default=None, description="Base64 encoded image data for multimodal processing")
+    image_data: str | None = Field(default=None, description="Base64 encoded image data")
+    voice_data: str | None = Field(default=None, description="Base64 encoded audio data")
+    pdf_data: str | None = Field(default=None, description="Base64 encoded PDF document")
 
 
 class QAResponse(BaseModel):

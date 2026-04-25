@@ -23,9 +23,8 @@ class MultimodalProcessor:
     def _get_whisper(self):
         """Lazy load whisper model on CPU."""
         if self._whisper_model is None:
-            logger.info("Loading Whisper 'base' model on CPU...")
-            # 'base' is ~140MB and very accurate on CPU
-            self._whisper_model = whisper.load_model("base", device="cpu")
+            logger.info(f"Loading Whisper '{settings.WHISPER_MODEL}' model on CPU...")
+            self._whisper_model = whisper.load_model(settings.WHISPER_MODEL, device="cpu")
         return self._whisper_model
 
     async def process_pdf(self, pdf_base64: str, model: str | None = None) -> str:
