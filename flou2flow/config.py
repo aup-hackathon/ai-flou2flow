@@ -26,7 +26,7 @@ class Settings:
 
     # Server
     HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", "8001"))
+    PORT: int = int(os.getenv("PORT", "8000"))
 
     # NATS
     NATS_URL: str = os.getenv("NATS_URL", "nats://localhost:4222")
