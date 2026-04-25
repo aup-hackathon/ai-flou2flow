@@ -1,5 +1,5 @@
 import base64
-import requests
+import httpx
 import json
 import os
 
