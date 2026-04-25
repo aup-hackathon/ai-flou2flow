@@ -20,4 +20,8 @@ The mission of Flou2Flow is to eliminate the requirement for massive reasoning m
 2. Heterogeneous Orchestration: Using the right model for the right task at the right time.
 3. Deterministic Integrity: Ensuring structural consistency through mathematical grammar constraints and stable hashing.
 
+---
+
+**Keywords:** `AI Orchestration` • `Multi-agent Systems` • `Workflow Automation` • `BPMN 2.0` • `NATS Messaging` • `Elsa Workflows` • `Multimodal AI` • `Edge Computing` • `Token Optimization` • `Heterogeneous Models`
+
 *Architecture documentation for Flou2Flow Core System.*
