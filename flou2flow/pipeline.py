@@ -40,6 +40,7 @@ from .prompts import (
     FLOW_USER_PROMPT,
 )
 from .toon import to_toon
+from .utils import generate_stable_hash
 
 logger = logging.getLogger(__name__)
 
@@ -164,18 +165,28 @@ async def step_entity_extraction(
     actors = []
     for a in data.get("actors", []):
         if "id" in a and "name" in a:
-            actors.append(Actor(**a))
+            actor = Actor(**a)
+            actor.hash = generate_stable_hash(f"actor:{actor.id}:{actor.name}")
+            actors.append(actor)
 
     # Parse tasks - handle potential mix-ups from small models
     tasks = []
     for t in data.get("tasks", []):
         # Only parse as Task if it has a 'name' (Decisions have 'question')
         if "name" in t and "id" in t:
-            tasks.append(Task(**t))
+            task = Task(**t)
+            task.hash = generate_stable_hash(f"task:{task.id}:{task.name}")
+            tasks.append(task)
         elif "question" in t and "id" in t:
             # Mistakenly placed in tasks list
-            conditions = [Condition(**c) for c in t.get("conditions", [])]
-            data.setdefault("decisions", []).append(t)
+            decision_data = t
+            decision = Decision(
+                id=decision_data["id"],
+                question=decision_data["question"],
+                conditions=[Condition(**c) for c in decision_data.get("conditions", [])]
+            )
+            decision.hash = generate_stable_hash(f"decision:{decision.id}:{decision.question}")
+            data.setdefault("decisions", []).append(decision.model_dump())
 
     # Parse decisions with conditions
     decisions = []
@@ -186,11 +197,13 @@ async def step_entity_extraction(
         if "id" in d and d["id"] not in seen_decision_ids:
             if "question" in d:
                 conditions = [Condition(**c) for c in d.get("conditions", [])]
-                decisions.append(Decision(
+                decision = Decision(
                     id=d["id"],
                     question=d["question"],
                     conditions=conditions,
-                ))
+                )
+                decision.hash = generate_stable_hash(f"decision:{decision.id}:{decision.question}")
+                decisions.append(decision)
                 seen_decision_ids.add(d["id"])
             elif "name" in d:
                 # Mistakenly placed in decisions list

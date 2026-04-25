@@ -36,3 +36,11 @@ def calculate_token_savings(original: str, pruned: str) -> float:
     pruned_count = len(pruned.split())
     if orig_count == 0: return 0.0
     return (1 - (pruned_count / orig_count)) * 100
+
+def generate_stable_hash(content: str) -> str:
+    """
+    Generate a deterministic SHA256 hash for a given string content.
+    Used for stable element identification in the AI pipeline.
+    """
+    import hashlib
+    return hashlib.sha256(content.encode()).hexdigest()[:16]
