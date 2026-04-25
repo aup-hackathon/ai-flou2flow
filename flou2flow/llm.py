@@ -86,12 +86,9 @@ class LLMClient:
         if start != -1 and end > start:
             text = text[start:end]
 
-        # 3. Self-Healing: Fix trailing commas (common in tiny models)
-        # Matches a comma followed by closing brace/bracket with optional whitespace
         text = re.sub(r',\s*([}\]])', r'\1', text)
         
-        # 4. Self-Healing: Fix unquoted keys if necessary (basic attempt)
-        # text = re.sub(r'([{,]\s*)([a-zA-Z0-9_]+)\s*:', r'\1"\2":', text)
+
 
         try:
             return json.loads(text)
