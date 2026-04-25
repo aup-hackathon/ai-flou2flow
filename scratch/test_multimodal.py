@@ -59,12 +59,14 @@ def test_voice_route():
 def send_request(payload):
     print("Sending request to /api/workflow/generate...")
     try:
-        response = requests.post("http://localhost:8001/api/workflow/generate", json=payload, timeout=120)
-        print(f"Status Code: {response.status_code}")
-        data = response.json()
-        print("Summary:", data.get("ai_summary", "No summary"))
-        if "entities" in data:
-            print("Tasks extracted:", [t["name"] for t in data["entities"].get("tasks", [])])
+        with httpx.Client() as client:
+            response = client.post("http://localhost:8001/api/workflow/generate", json=payload, timeout=httpx.Timeout(120.0))
+            print(f"Status Code: {response.status_code}")
+            data = response.json()
+            print("Summary:", data.get("ai_summary", "No summary"))
+            if "elements_json" in data:
+                entities = data["elements_json"].get("entities", {})
+                print("Tasks extracted:", [t["name"] for t in entities.get("tasks", [])])
     except Exception as e:
         print(f"Error: {e}")
 
