@@ -99,7 +99,6 @@ async def health_check():
     """Health check endpoint."""
     return {
         "status": "ok",
-        "provider": settings.LLM_PROVIDER,
         "model": settings.LLM_MODEL,
         "nats_connected": nats_handler.is_connected,
     }
@@ -406,7 +405,7 @@ async def run_agent(req: AgentRequest):
 @app.post("/api/qa/generate")
 async def generate_qa_questions(req: QARequest):
     """Generate clarifying questions from process gaps."""
-    logger.info(f"QA request: {len(req.input_text)} chars (multimodal: {req.image_data is not None})")
+    logger.info(f"QA request: {len(req.input_text)} chars (multimodal: {req.file_data is not None})")
 
     multimodal_data = await process_multimodal_input(
         req.input_text, 
