@@ -12,19 +12,18 @@ services:
       # LLM Configuration
       LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
       LLM_MODEL: ${LLM_MODEL:-qwen2:1.5b}
-      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       VISION_MODEL: ${VISION_MODEL:-llava}
 
       # Server
       HOST: ${HOST:-0.0.0.0}
       PORT: ${PORT:-8000}
 
-      # NATS - connect to backend's NATS
-      NATS_URL: ${NATS_URL:-nats://flowforge-nats:4222}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    networks:
-      - flowforge_default
+      # NATS Configuration
+      NATS_URL: ${NATS_URL:-nats://nats:4222}
+    depends_on:
+      - ollama
+      - nats
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
@@ -32,9 +31,23 @@ services:
       retries: 5
       start_period: 30s
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: flou2flow-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    # This command starts Ollama in the background, waits for it, pulls the model, and keeps it running
+    command: bash -c "ollama serve & sleep 5 && ollama pull qwen2:1.5b && wait"
+
+  nats:
+    image: nats:latest
+    container_name: flou2flow-nats
+    ports:
+      - "4222:4222"
+      - "8222:8222" # Management port
+
 volumes:
   ollama-models:
 
-networks:
-  flowforge_default:
-    external: true
