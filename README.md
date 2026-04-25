@@ -14,21 +14,14 @@ Explore the detailed architecture and optimization methodologies of the Flou2Flo
 
 ## Models Used
 
-The system uses a heterogeneous model stack. Current models referenced in code and deployment are:
+Current default models in use now:
 
-| Engine | Env Variable | Default in App (`flou2flow/config.py`) | Default in Docker (`docker-compose.yml`) |
-| :--- | :--- | :--- | :--- |
-| Primary reasoning | `LLM_MODEL` | `phi3` | `qwen2:1.5b` |
-| Cleaning / aggregation | `CLEANING_MODEL` | `qwen2:1.5b` | Uses app default unless overridden |
-| Vision / OCR | `VISION_MODEL` | `moondream` | `llava` |
-| Voice transcription | `WHISPER_MODEL` | `base` (OpenAI Whisper) | Uses app default unless overridden |
-
-Documented architecture alternatives in `docs/architecture.md` also include:
-
-- SmolLM 135M (cleaning engine)
-- Qwen2 0.5B / 1.5B (analytical engine)
-- Llava / Moondream (vision engine)
-- Whisper Base (transcription engine)
+| Engine | Env Variable | Model |
+| :--- | :--- | :--- |
+| Primary reasoning | `LLM_MODEL` | `qwen2:1.5b` |
+| Cleaning / aggregation | `CLEANING_MODEL` | `qwen2:1.5b` |
+| Vision / OCR | `VISION_MODEL` | `llava` |
+| Voice transcription | `WHISPER_MODEL` | `base` (OpenAI Whisper) |
 
 ## Project Vision
 
