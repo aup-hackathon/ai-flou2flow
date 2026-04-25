@@ -30,6 +30,7 @@ class Actor(BaseModel):
 class Task(BaseModel):
     """A task or activity in the process."""
     id: str
+    hash: str = Field(default_factory=lambda: uuid.uuid4().hex, description="Unique hashed identifier")
     node_type: str = Field(default="task", description="Type of the node for graph rendering")
     name: str
     description: str = ""
@@ -40,6 +41,7 @@ class Task(BaseModel):
 class Decision(BaseModel):
     """A decision point in the process."""
     id: str
+    hash: str = Field(default_factory=lambda: uuid.uuid4().hex, description="Unique hashed identifier")
     node_type: str = Field(default="decision", description="Type of the node for graph rendering")
     question: str
     conditions: list[Condition] = Field(default_factory=list)
