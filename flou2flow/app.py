@@ -26,20 +26,24 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Connect to NATS and start subscribers on startup."""
-    await nats_handler.connect()
+    try:
+        await nats_handler.connect()
 
-    # Callback to handle tasks from NATS
-    async def nats_task_callback(job_id, data):
-        workflow = data.get("workflow", "full")
-        input_text = data.get("input_text", "")
-        mode = data.get("mode", "auto")
-        image_data = data.get("image_data")
-        model = data.get("model")
-        await run_workflow_task(job_id, workflow, input_text, mode, image_data, model)
+        # Callback to handle tasks from NATS
+        async def nats_task_callback(job_id, data):
+            workflow = data.get("workflow", "full")
+            input_text = data.get("input_text", "")
+            mode = data.get("mode", "auto")
+            image_data = data.get("image_data")
+            model = data.get("model")
+            await run_workflow_task(job_id, workflow, input_text, mode, image_data, model)
 
-    # Start subscriptions
-    await nats_handler.subscribe_tasks(nats_task_callback)
-    await nats_handler.subscribe_preprocess()
+        # Start subscriptions
+        await nats_handler.subscribe_tasks(nats_task_callback)
+        await nats_handler.subscribe_preprocess()
+        logger.info("NATS connected and subscribers started.")
+    except Exception as e:
+        logger.warning(f"Failed to connect to NATS: {e}. Some background features may be unavailable.")
 
     yield
 

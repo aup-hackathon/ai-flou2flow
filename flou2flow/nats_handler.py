@@ -19,12 +19,18 @@ class NatsHandler:
     async def connect(self):
         """Connect to NATS server."""
         try:
-            await self.nc.connect(settings.NATS_URL)
+            # Use short timeout and no retries for initial connection to avoid blocking server startup
+            await self.nc.connect(
+                settings.NATS_URL,
+                connect_timeout=2,
+                max_reconnect_attempts=0
+            )
             self.is_connected = True
             logger.info(f"Connected to NATS at {settings.NATS_URL}")
         except Exception as e:
-            logger.error(f"Failed to connect to NATS: {e}")
+            logger.warning(f"Failed to connect to NATS at {settings.NATS_URL}: {e}")
             self.is_connected = False
+            # Don't re-raise, let the application continue without NATS
 
     async def disconnect(self):
         """Disconnect from NATS server."""
@@ -63,7 +69,7 @@ class NatsHandler:
     async def subscribe_tasks(self, callback):
         """Subscribe to ai.tasks.new."""
         if not self.is_connected:
-            await self.connect()
+            return
 
         async def message_handler(msg):
             subject = msg.subject
@@ -82,13 +88,12 @@ class NatsHandler:
     async def subscribe_preprocess(self):
         """Subscribe to document.preprocess."""
         if not self.is_connected:
-            await self.connect()
+            return
 
         async def preprocess_handler(msg):
             data = json.loads(msg.data.decode())
             logger.info(f"Received preprocess request for document: {data.get('document_id')}")
             # Placeholder for actual preprocessing logic
-            # For now, just acknowledge or publish a dummy result
             await self.nc.publish("document.preprocessed", json.dumps({"status": "ok", "document_id": data.get("document_id")}).encode())
 
         await self.nc.subscribe("document.preprocess", cb=preprocess_handler)
