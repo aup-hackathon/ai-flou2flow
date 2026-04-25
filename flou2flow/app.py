@@ -12,7 +12,7 @@ from .agent import FlouAgent
 from .config import settings
 from .llm import llm_client
 from .mermaid import generate_mermaid_diagram
-from .models import AgentRequest, AgentStep, MultimodalResult, PipelineResult, ProcessContext, QARequest, QueueRequest
+from .models import AgentRequest, AgentStep, InputRequest, InputResponse, MultimodalResult, PipelineResult, ProcessContext, QARequest, QueueRequest
 from .multimodal import processor
 from .nats_handler import nats_handler
 from .pipeline import run_pipeline
@@ -108,13 +108,13 @@ async def process_multimodal_input(
     input_text: str,
     file_data: str | None = None,
     file_name: str | None = None
-) -> str:
+) -> dict:
     """Auto-detects file type from extension and routes to appropriate local processor."""
     # Pro Method: Semantic Pruning
     input_text = semantic_prune(input_text)
     
     if not file_data or not file_name:
-        return input_text
+        return {"result": input_text, "type": "TEXT"}
 
     extra_context = []
     ext = file_name.lower().split(".")[-1]
@@ -151,10 +151,14 @@ async def process_multimodal_input(
             response_schema=MultimodalResult,
         )
         data = llm_client.parse_json_response(response)
-        return data.get("result", combined_input)
+        if "result" not in data:
+            data["result"] = combined_input
+        if "type" not in data:
+            data["type"] = "UNKNOWN"
+        return data
     except Exception as e:
         logger.error(f"Multimodal structuring failed: {e}")
-        return combined_input
+        return {"result": combined_input, "type": "UNKNOWN"}
 
 
 
@@ -179,11 +183,12 @@ async def run_workflow_task(
             progress_pct=10,
             message="Processing input (multimodal check)",
         )
-        processed_text = await process_multimodal_input(
+        multimodal_data = await process_multimodal_input(
             input_text, 
             file_data=file_data, 
             file_name=file_name
         )
+        processed_text = multimodal_data["result"]
 
         # ── Step 1–4: Pipeline ─────────────────────────────────
         await nats_handler.publish_progress(
@@ -275,11 +280,12 @@ async def generate_workflow_sync(req: QueueRequest):
     logger.info(f"Sync workflow [{req.workflow}] session={req.session_id}")
 
     try:
-        processed_text = await process_multimodal_input(
+        multimodal_data = await process_multimodal_input(
             req.input_text, 
-            file_data=req.file_data, 
-            file_name=req.file_name
+            req.file_data, 
+            req.file_name
         )
+        processed_text = multimodal_data["result"]
         result = await run_pipeline(processed_text)
 
         confidence = _compute_confidence(result)
@@ -358,11 +364,12 @@ async def run_agent(req: AgentRequest):
     """Run an agentic system to handle a task."""
     logger.info(f"Agent request: {req.task} (mode: {req.mode}, session={req.session_id})")
 
-    processed_task = await process_multimodal_input(
+    multimodal_data = await process_multimodal_input(
         req.task, 
-        file_data=req.file_data, 
-        file_name=req.file_name
+        req.file_data, 
+        req.file_name
     )
+    processed_task = multimodal_data["result"]
     agent = FlouAgent()
 
     try:
@@ -400,11 +407,12 @@ async def generate_qa_questions(req: QARequest):
     """Generate clarifying questions from process gaps."""
     logger.info(f"QA request: {len(req.input_text)} chars (multimodal: {req.image_data is not None})")
 
-    processed_text = await process_multimodal_input(
+    multimodal_data = await process_multimodal_input(
         req.input_text, 
-        file_data=req.file_data, 
-        file_name=req.file_name
+        req.file_data, 
+        req.file_name
     )
+    processed_text = multimodal_data["result"]
     agent = FlouAgent()
 
     try:
@@ -413,6 +421,33 @@ async def generate_qa_questions(req: QARequest):
     except Exception as e:
         logger.error(f"QA Agent failed: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/api/input", response_model=InputResponse)
+async def preprocess_input(req: InputRequest):
+    """
+    Pro-Context Endpoint: Transforms raw multimodal input into 
+    token-optimized, semantically dense text.
+    """
+    logger.info(f"Pre-processing input: {req.file_name or 'Text'}")
+    try:
+        data = await process_multimodal_input(
+            req.input_text,
+            req.file_data,
+            req.file_name
+        )
+        return InputResponse(
+            success=True,
+            type=data.get("type", "UNKNOWN"),
+            result=data.get("result", ""),
+            optimized_text=data.get("result", "")
+        )
+    except Exception as e:
+        logger.error(f"Input preprocessing failed: {e}")
+        return JSONResponse(
+            status_code=500, 
+            content={"success": False, "error": str(e)}
+        )
 
 
 if __name__ == "__main__":

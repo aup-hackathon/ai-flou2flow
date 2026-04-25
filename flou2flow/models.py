@@ -140,6 +140,21 @@ class AgentRequest(BaseModel):
     file_name: str | None = Field(default=None, description="Name of the file")
 
 
+class InputRequest(BaseModel):
+    """API request for raw multimodal input preprocessing."""
+    input_text: str = Field(default="", description="Optional text input")
+    file_data: str | None = Field(default=None, description="Base64 encoded file content")
+    file_name: str | None = Field(default=None, description="Name of the file (e.g., process.pdf, note.mp3)")
+
+
+class InputResponse(BaseModel):
+    """Structured response for the input preprocessing endpoint."""
+    success: bool
+    type: str
+    result: str
+    optimized_text: str  # Alias for result, for clarity in "X to text" workflows
+
+
 
 class AgentResponse(BaseModel):
     """Structured response from the agentic system."""

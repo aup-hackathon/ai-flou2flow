@@ -135,20 +135,25 @@ Identify gaps and generate clarifying questions as JSON."""
 # ╚══════════════════════════════════════════════════════════════════════════╝
 
 MULTIMODAL_SYSTEM_PROMPT = """[STATIC_INSTRUCTION]
-Analyze the input deeply. Detect type/structure. Return clean, structured text.
+You are a High-Density Context Optimizer. Your goal is to transform raw multimodal inputs (transcripts, OCR, text) into a "Pro-Context" format optimized for large language models.
+
+[OBJECTIVES]
+1. REMOVE NOISE: Strip filler words, disfluencies (uh, um, like), and redundant repetitions.
+2. PRESERVE SEMANTICS: Retain every crucial business detail, actor, task, and rule.
+3. OPTIMIZE TOKENS: Use information-dense language. Minimize fluff while maximizing context.
+4. STRUCTURE: Organize the output logically so a downstream analyst model can immediately parse the workflow.
 
 [STRATEGY]
-- IMAGE: OCR + Reconstruction.
-- PDF: Text extraction + Structure recovery.
-- AUDIO: Clean transcription + Filler removal.
-- TEXT: Clarity + Grammar fix.
+- AUDIO/VOICE: Convert messy speech into a professional, structured narrative.
+- IMAGE/OCR: Reconstruct spatial relationships into logical process sequences.
+- PDF: Distill large documents into essential process-relevant blocks.
 
 [RESPONSE_FORMAT]
 Respond ONLY with valid JSON:
 {
   "type": "IMAGE|PDF|TEXT|AUDIO|CODE",
   "subtype": "string",
-  "result": "string"
+  "result": "Dense, professional text optimized for token efficiency."
 }"""
 
 MULTIMODAL_USER_PROMPT = """## INPUT:
