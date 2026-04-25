@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -113,29 +114,28 @@ async def process_multimodal_input(
     # Pro Method: Semantic Pruning
     input_text = semantic_prune(input_text)
     
-    if not file_data or not file_name:
-        return {"result": input_text, "type": "TEXT"}
-
     extra_context = []
-    ext = file_name.lower().split(".")[-1]
+    
+    if file_data and file_name:
+        ext = file_name.lower().split(".")[-1]
 
-    # 1. Route to Voice (Audio extensions)
-    if ext in ["mp3", "wav", "m4a", "ogg", "flac"]:
-        logger.info(f"Auto-routed {file_name} to Whisper...")
-        transcript = await processor.process_voice(file_data)
-        extra_context.append(f"[Voice Transcript]: {transcript}")
+        # 1. Route to Voice (Audio extensions)
+        if ext in ["mp3", "wav", "m4a", "ogg", "flac"]:
+            logger.info(f"Auto-routed {file_name} to Whisper...")
+            transcript = await processor.process_voice(file_data)
+            extra_context.append(f"[Voice Transcript]: {transcript}")
 
-    # 2. Route to PDF
-    elif ext == "pdf":
-        logger.info(f"Auto-routed {file_name} to PDF Engine...")
-        pdf_content = await processor.process_pdf(file_data)
-        extra_context.append(f"[PDF Content]:\n{pdf_content}")
+        # 2. Route to PDF
+        elif ext == "pdf":
+            logger.info(f"Auto-routed {file_name} to PDF Engine...")
+            pdf_content = await processor.process_pdf(file_data)
+            extra_context.append(f"[PDF Content]:\n{pdf_content}")
 
-    # 3. Route to Image (Vision extensions)
-    elif ext in ["png", "jpg", "jpeg", "webp", "bmp"]:
-        logger.info(f"Auto-routed {file_name} to Moondream Vision...")
-        image_desc = await processor.process_image(file_data)
-        extra_context.append(f"[Image Analysis]: {image_desc}")
+        # 3. Route to Image (Vision extensions)
+        elif ext in ["png", "jpg", "jpeg", "webp", "bmp"]:
+            logger.info(f"Auto-routed {file_name} to Moondream Vision...")
+            image_desc = await processor.process_image(file_data)
+            extra_context.append(f"[Image Analysis]: {image_desc}")
 
     # Combine all into a single context for the cleaning agent
     combined_input = f"{input_text}\n\n" + "\n\n".join(extra_context)
@@ -151,6 +151,7 @@ async def process_multimodal_input(
             response_schema=MultimodalResult,
         )
         data = llm_client.parse_json_response(response)
+        logger.info(f"Multimodal cleaning model output: {json.dumps(data, indent=2)}")
         if "result" not in data:
             data["result"] = combined_input
         if "type" not in data:

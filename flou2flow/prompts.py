@@ -1,13 +1,3 @@
-"""Prompt templates for the Flou2Flow pipeline.
-
-Each step uses carefully crafted prompts to guide Mistral 7B through
-structured extraction from unstructured business process descriptions.
-"""
-
-# ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  STEP 1: CONTEXT UNDERSTANDING                                         ║
-# ╚══════════════════════════════════════════════════════════════════════════╝
-
 CONTEXT_SYSTEM_PROMPT = """[STATIC_INSTRUCTION]
 You are an expert business process analyst. Analyze the input carefully and extract:
 1. Clear, concise summary (2-3 sentences)
@@ -31,9 +21,7 @@ CONTEXT_USER_PROMPT = """Identify the context from the following business proces
 {input_text}"""
 
 
-# ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  STEP 2: ENTITY EXTRACTION                                             ║
-# ╚══════════════════════════════════════════════════════════════════════════╝
+
 
 ENTITIES_SYSTEM_PROMPT = """[STATIC_INSTRUCTION]
 You are an expert process analyst. Extract all process elements (actors, tasks, decisions, data objects, rules).
@@ -65,10 +53,6 @@ DESCRIPTION:
 {input_text}
 ---"""
 
-
-# ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  STEP 3: FLOW CONSTRUCTION                                             ║
-# ╚══════════════════════════════════════════════════════════════════════════╝
 
 FLOW_SYSTEM_PROMPT = """[STATIC_INSTRUCTION]
 You are a workflow architect. Construct a directed flow graph from tasks and decisions.
@@ -102,10 +86,6 @@ Decisions:
 Construct the directed flow graph as JSON. Ensure every element is connected and the flow is logically consistent."""
 
 
-# ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  STEP 4: Q&A / GAP DETECTION                                           ║
-# ╚══════════════════════════════════════════════════════════════════════════╝
-
 QA_SYSTEM_PROMPT = """[STATIC_INSTRUCTION]
 You are a business process consultant. Identify gaps, ambiguities, or missing information in the process description.
 Focus on: Missing actors, undefined transitions, vague tasks, and unclear end states.
@@ -130,30 +110,19 @@ Current Context (if any):
 
 Identify gaps and generate clarifying questions as JSON."""
 
-# ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  STEP 6: MULTIMODAL CONTENT ANALYSIS                                   ║
-# ╚══════════════════════════════════════════════════════════════════════════╝
 
 MULTIMODAL_SYSTEM_PROMPT = """[STATIC_INSTRUCTION]
-You are a High-Density Context Optimizer. Your goal is to transform raw multimodal inputs (transcripts, OCR, text) into a "Pro-Context" format optimized for large language models.
+You are a Context Optimizer. Your task is to clean and condense raw input (OCR, transcripts, or messy text) into professional, token-efficient text for a business analyst.
 
-[OBJECTIVES]
-1. REMOVE NOISE: Strip filler words, disfluencies (uh, um, like), and redundant repetitions.
-2. PRESERVE SEMANTICS: Retain every crucial business detail, actor, task, and rule.
-3. OPTIMIZE TOKENS: Use information-dense language. Minimize fluff while maximizing context.
-4. STRUCTURE: Organize the output logically so a downstream analyst model can immediately parse the workflow.
+[RULES]
+1. REMOVE NOISE: Strip fillers (uh, um, like), repetitions, and irrelevant chat.
+2. DENSITY: Keep only business-relevant facts, actors, and steps.
+3. OUTPUT: Respond ONLY with a JSON object.
 
-[STRATEGY]
-- AUDIO/VOICE: Convert messy speech into a professional, structured narrative.
-- IMAGE/OCR: Reconstruct spatial relationships into logical process sequences.
-- PDF: Distill large documents into essential process-relevant blocks.
-
-[RESPONSE_FORMAT]
-Respond ONLY with valid JSON:
+[JSON_FORMAT]
 {
-  "type": "IMAGE|PDF|TEXT|AUDIO|CODE",
-  "subtype": "string",
-  "result": "Dense, professional text optimized for token efficiency."
+  "type": "TEXT|AUDIO|IMAGE|PDF",
+  "result": "The cleaned, optimized text content here"
 }"""
 
 MULTIMODAL_USER_PROMPT = """## INPUT:
