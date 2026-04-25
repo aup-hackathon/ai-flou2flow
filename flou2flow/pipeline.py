@@ -22,6 +22,8 @@ from .models import (
     DataObject,
     Decision,
     FlowConnection,
+    LLMEntities,
+    LLMFlow,
     ParallelBranch,
     PipelineResult,
     ProcessContext,
@@ -153,7 +155,7 @@ async def step_entity_extraction(
         system_prompt=ENTITIES_SYSTEM_PROMPT,
         user_prompt=user_prompt,
         model=model,
-        response_schema=ProcessEntities,
+        response_schema=LLMEntities,
     )
 
     data = llm_client.parse_json_response(response)
@@ -238,7 +240,7 @@ async def step_flow_construction(
         system_prompt=FLOW_SYSTEM_PROMPT,
         user_prompt=user_prompt,
         model=model,
-        response_schema=ProcessFlow,
+        response_schema=LLMFlow,
     )
 
     data = llm_client.parse_json_response(response)
