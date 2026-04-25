@@ -106,47 +106,47 @@ async def health_check():
 
 async def process_multimodal_input(
     input_text: str,
-    image_data: str | None = None,
-    voice_data: str | None = None,
-    pdf_data: str | None = None,
-    model: str | None = None
+    file_data: str | None = None,
+    file_name: str | None = None
 ) -> str:
-    """Aggregates content from multiple local sources (Voice, PDF, Image) into clean text."""
-    # Pro Method: Semantic Pruning of the initial input text
+    """Auto-detects file type from extension and routes to appropriate local processor."""
+    # Pro Method: Semantic Pruning
     input_text = semantic_prune(input_text)
     
-    extra_context = []
+    if not file_data or not file_name:
+        return input_text
 
-    # 1. Process Voice
-    if voice_data:
-        logger.info("Transcribing voice input locally...")
-        transcript = await processor.process_voice(voice_data)
+    extra_context = []
+    ext = file_name.lower().split(".")[-1]
+
+    # 1. Route to Voice (Audio extensions)
+    if ext in ["mp3", "wav", "m4a", "ogg", "flac"]:
+        logger.info(f"Auto-routed {file_name} to Whisper...")
+        transcript = await processor.process_voice(file_data)
         extra_context.append(f"[Voice Transcript]: {transcript}")
 
-    # 2. Process PDF
-    if pdf_data:
-        logger.info("Extracting content from PDF locally...")
-        pdf_content = await processor.process_pdf(pdf_data, model=model)
+    # 2. Route to PDF
+    elif ext == "pdf":
+        logger.info(f"Auto-routed {file_name} to PDF Engine...")
+        pdf_content = await processor.process_pdf(file_data)
         extra_context.append(f"[PDF Content]:\n{pdf_content}")
 
-    # 3. Process Image
-    if image_data:
-        logger.info("Analyzing image visually...")
-        image_desc = await processor.process_image(image_data, model=model)
+    # 3. Route to Image (Vision extensions)
+    elif ext in ["png", "jpg", "jpeg", "webp", "bmp"]:
+        logger.info(f"Auto-routed {file_name} to Moondream Vision...")
+        image_desc = await processor.process_image(file_data)
         extra_context.append(f"[Image Analysis]: {image_desc}")
 
     # Combine all into a single context for the cleaning agent
     combined_input = f"{input_text}\n\n" + "\n\n".join(extra_context)
-    
-    # Use the Advanced Multimodal Agent to structure the aggregated information
     user_prompt = MULTIMODAL_USER_PROMPT.format(input_text=combined_input)
     
     try:
-        logger.info("Running Advanced Multimodal Agent to structure aggregated input...")
+        logger.info("Structuring aggregated multimodal context...")
         response = await llm_client.chat(
             system_prompt=MULTIMODAL_SYSTEM_PROMPT,
             user_prompt=user_prompt,
-            model=model or settings.CLEANING_MODEL,
+            model=settings.CLEANING_MODEL,
             json_mode=True,
             response_schema=MultimodalResult,
         )
@@ -157,13 +157,14 @@ async def process_multimodal_input(
         return combined_input
 
 
+
 async def run_workflow_task(
     session_id: str,
     workflow: str,
     input_text: str,
     mode: str,
-    image_data: str | None = None,
-    model: str | None = None,
+    file_data: str | None = None,
+    file_name: str | None = None
 ):
     """
     Background task: run the pipeline and publish progress + result to NATS
@@ -180,10 +181,8 @@ async def run_workflow_task(
         )
         processed_text = await process_multimodal_input(
             input_text, 
-            image_data=image_data, 
-            voice_data=voice_data, 
-            pdf_data=pdf_data, 
-            model=model
+            file_data=file_data, 
+            file_name=file_name
         )
 
         # ── Step 1–4: Pipeline ─────────────────────────────────
@@ -194,7 +193,7 @@ async def run_workflow_task(
             progress_pct=30,
             message="Running context understanding",
         )
-        result = await run_pipeline(processed_text, model=model)
+        result = await run_pipeline(processed_text)
 
         await nats_handler.publish_progress(
             session_id=session_id,
@@ -209,7 +208,7 @@ async def run_workflow_task(
         if mode == "interactive" and result.context:
             try:
                 agent = FlouAgent()
-                qa = await agent.generate_questions(processed_text, model=model)
+                qa = await agent.generate_questions(processed_text)
                 questions = qa.questions
             except Exception as qa_err:
                 logger.warning(f"QA agent failed: {qa_err}")
@@ -248,23 +247,40 @@ async def run_workflow_task(
         )
 
 
+@app.post("/api/workflow/queue")
+async def generate_workflow_async(req: QueueRequest, background_tasks: BackgroundTasks):
+    """
+    Asynchronous endpoint: add task to background and return session_id.
+    """
+    logger.info(f"Queue workflow [{req.workflow}] session={req.session_id}")
+
+    background_tasks.add_task(
+        run_workflow_task,
+        req.session_id,
+        req.workflow,
+        req.input_text,
+        req.mode,
+        file_data=req.file_data,
+        file_name=req.file_name
+    )
+    return {"session_id": req.session_id}
+
+
 @app.post("/api/workflow/generate")
 async def generate_workflow_sync(req: QueueRequest):
     """
     Synchronous endpoint: run pipeline and return result directly.
     Also publishes to NATS with the correct backend schema.
     """
-    logger.info(f"Sync workflow [{req.workflow}] session={req.session_id} model={req.model}")
+    logger.info(f"Sync workflow [{req.workflow}] session={req.session_id}")
 
     try:
         processed_text = await process_multimodal_input(
             req.input_text, 
-            image_data=req.image_data, 
-            voice_data=req.voice_data, 
-            pdf_data=req.pdf_data, 
-            model=req.model
+            file_data=req.file_data, 
+            file_name=req.file_name
         )
-        result = await run_pipeline(processed_text, model=req.model)
+        result = await run_pipeline(processed_text)
 
         confidence = _compute_confidence(result)
         elements_json = _build_elements_json(result)
@@ -276,7 +292,7 @@ async def generate_workflow_sync(req: QueueRequest):
         if req.mode == "interactive" and result.context:
             try:
                 agent = FlouAgent()
-                qa = await agent.generate_questions(processed_text, model=req.model)
+                qa = await agent.generate_questions(processed_text)
                 questions = qa.questions
             except Exception as qa_err:
                 logger.warning(f"QA agent failed: {qa_err}")
@@ -344,10 +360,8 @@ async def run_agent(req: AgentRequest):
 
     processed_task = await process_multimodal_input(
         req.task, 
-        image_data=req.image_data, 
-        voice_data=req.voice_data, 
-        pdf_data=req.pdf_data, 
-        model=req.model
+        file_data=req.file_data, 
+        file_name=req.file_name
     )
     agent = FlouAgent()
 
@@ -359,7 +373,7 @@ async def run_agent(req: AgentRequest):
             progress_pct=10,
             message="Agent started",
         )
-        response = await agent.run(processed_task, mode=req.mode, model=req.model)
+        response = await agent.run(processed_task, session_id=req.session_id)
 
         await nats_handler.publish_progress(
             session_id=req.session_id,
@@ -388,15 +402,13 @@ async def generate_qa_questions(req: QARequest):
 
     processed_text = await process_multimodal_input(
         req.input_text, 
-        image_data=req.image_data, 
-        voice_data=req.voice_data, 
-        pdf_data=req.pdf_data, 
-        model=req.model
+        file_data=req.file_data, 
+        file_name=req.file_name
     )
     agent = FlouAgent()
 
     try:
-        response = await agent.generate_questions(processed_text, context=req.context, model=req.model)
+        response = await agent.generate_questions(processed_text, context=req.context)
         return response
     except Exception as e:
         logger.error(f"QA Agent failed: {e}")
