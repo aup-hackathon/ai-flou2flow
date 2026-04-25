@@ -31,6 +31,7 @@ graph TD
 
     subgraph "Output Layer"
         Flow --> Elsa["Elsa Workflow (JSON)"]
+        Flow --> BPMN["BPMN 2.0 (XML)"]
         Flow --> Mermaid["Mermaid Diagram"]
     end
 ```

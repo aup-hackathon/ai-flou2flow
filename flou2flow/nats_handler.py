@@ -40,6 +40,7 @@ class NatsHandler:
         self,
         session_id: str,
         workflow_json: dict,
+        bpmn_xml: str | None,
         elements_json: dict,
         ai_summary: str,
         confidence: float,
@@ -63,6 +64,7 @@ class NatsHandler:
         payload = {
             "session_id": session_id,
             "workflow_json": workflow_json,
+            "bpmn_xml": bpmn_xml,
             "elements_json": elements_json,
             "ai_summary": ai_summary,
             "confidence": round(confidence, 4),

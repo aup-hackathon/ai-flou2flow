@@ -227,6 +227,7 @@ async def run_workflow_task(
         await nats_handler.publish_result(
             session_id=session_id,
             workflow_json=workflow_json,
+            bpmn_xml=result.bpmn_xml,
             elements_json=elements_json,
             ai_summary=ai_summary,
             confidence=confidence,
@@ -306,6 +307,7 @@ async def generate_workflow_sync(req: QueueRequest):
         await nats_handler.publish_result(
             session_id=req.session_id,
             workflow_json=workflow_json,
+            bpmn_xml=result.bpmn_xml,
             elements_json=elements_json,
             ai_summary=ai_summary,
             confidence=confidence,
@@ -332,6 +334,7 @@ async def generate_workflow_sync(req: QueueRequest):
                 "entities": result.entities.model_dump() if result.entities else None,
                 "flow": result.flow.model_dump() if result.flow else None,
                 "elsa_workflow": workflow_json,
+                "bpmn_xml": result.bpmn_xml,
                 "mermaid_diagram": mermaid_diagram,
             }
 
@@ -351,6 +354,7 @@ async def generate_workflow_sync(req: QueueRequest):
                 "entities": result.entities.model_dump() if result.entities else None,
                 "flow": result.flow.model_dump() if result.flow else None,
                 "elsa_workflow": workflow_json,
+                "bpmn_xml": result.bpmn_xml,
                 "mermaid_diagram": mermaid_diagram,
             }
 

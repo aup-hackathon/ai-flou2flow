@@ -13,7 +13,7 @@ import json
 import logging
 import traceback
 
-from .exporters import generate_elsa_workflow
+from .exporters import generate_elsa_workflow, generate_bpmn_xml
 from .llm import llm_client
 from .models import (
     Actor,
@@ -101,8 +101,8 @@ async def run_pipeline(input_text: str, model: str | None = None) -> PipelineRes
     # ── Step 4: Workflow Generation ────────────────────────────────────
     try:
         logger.info("Step 4: Workflow Generation")
-        elsa_wf = generate_elsa_workflow(context, entities, flow)
-        result.elsa_workflow = elsa_wf
+        result.elsa_workflow = generate_elsa_workflow(result.context, result.entities, result.flow)
+        result.bpmn_xml = generate_bpmn_xml(result.context, result.entities, result.flow)
         result.steps_completed.append("workflow_generation")
         logger.info("Workflow generation complete")
     except Exception as e:

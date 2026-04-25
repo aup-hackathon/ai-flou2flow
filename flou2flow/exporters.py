@@ -151,3 +151,88 @@ def generate_elsa_workflow(
 
 
     return workflow
+
+
+def generate_bpmn_xml(
+    context: ProcessContext,
+    entities: ProcessEntities,
+    flow: ProcessFlow,
+) -> str:
+    """
+    Generate an industry standard BPMN 2.0 XML representation of the process.
+    This allows the workflow to be imported into professional BPM tools.
+    """
+    import xml.etree.ElementTree as ET
+
+    # Define namespaces
+    BPMN = "http://www.omg.org/spec/BPMN/20100524/MODEL"
+    BPMNDI = "http://www.omg.org/spec/BPMN/20100524/DI"
+    DC = "http://www.omg.org/spec/DD/20100524/DC"
+    DI = "http://www.omg.org/spec/DD/20100524/DI"
+
+    ET.register_namespace("bpmn", BPMN)
+    ET.register_namespace("bpmndi", BPMNDI)
+    ET.register_namespace("dc", DC)
+    ET.register_namespace("di", DI)
+
+    root = ET.Element(f"{{{BPMN}}}definitions", {
+        "targetNamespace": "http://bpmn.io/schema/bpmn",
+        "exporter": "Flou2Flow",
+        "exporterVersion": "1.0",
+    })
+
+    process_id = f"Process_{str(uuid.uuid4())[:8]}"
+    process = ET.SubElement(root, f"{{{BPMN}}}process", {
+        "id": process_id,
+        "isExecutable": "false",
+        "name": context.summary[:60] if context.summary else "Generated Process",
+    })
+
+    # Start Event
+    ET.SubElement(process, f"{{{BPMN}}}startEvent", {"id": "start", "name": "Start"})
+
+    # Map for flow connections
+    flow_map: list[tuple[str, str, str | None]] = []
+
+    # Tasks
+    for task in entities.tasks:
+        task_tag = f"{{{BPMN}}}userTask" if task.type == "human" else f"{{{BPMN}}}serviceTask"
+        ET.SubElement(process, task_tag, {
+            "id": task.id,
+            "name": task.name,
+        })
+
+    # Gateways
+    for decision in entities.decisions:
+        ET.SubElement(process, f"{{{BPMN}}}exclusiveGateway", {
+            "id": decision.id,
+            "name": decision.question,
+        })
+
+    # End Event
+    ET.SubElement(process, f"{{{BPMN}}}endEvent", {"id": "end", "name": "End"})
+
+    # Connections (Sequence Flows)
+    if flow.start_event:
+        flow_map.append(("start", flow.start_event, None))
+
+    for conn in flow.connections:
+        flow_map.append((conn.from_id, conn.to_id, conn.condition))
+
+    for end_id in flow.end_events:
+        flow_map.append((end_id, "end", None))
+
+    # Add Sequence Flows to XML
+    for i, (src, target, label) in enumerate(flow_map):
+        flow_id = f"Flow_{i}"
+        flow_attrs = {
+            "id": flow_id,
+            "sourceRef": src,
+            "targetRef": target,
+        }
+        if label:
+            flow_attrs["name"] = label
+        ET.SubElement(process, f"{{{BPMN}}}sequenceFlow", flow_attrs)
+
+    # Return as string with declaration
+    return ET.tostring(root, encoding="unicode", xml_declaration=True)

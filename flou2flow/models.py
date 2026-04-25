@@ -114,6 +114,7 @@ class PipelineResult(BaseModel):
     entities: ProcessEntities | None = None
     flow: ProcessFlow | None = None
     elsa_workflow: dict | None = None
+    bpmn_xml: str | None = None
     steps_completed: list[str] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
 
@@ -291,6 +292,7 @@ class NatsTaskResult(BaseModel):
     """Exact schema published to ai.tasks.result (Backend_Issues.md BE-10)."""
     session_id: str
     workflow_json: dict          # Elsa-compatible workflow
+    bpmn_xml: str | None = None  # BPMN 2.0 XML
     elements_json: dict          # Full pipeline structure (context, entities, flow)
     ai_summary: str              # Plain-language process summary
     confidence: float            # 0.0–1.0
