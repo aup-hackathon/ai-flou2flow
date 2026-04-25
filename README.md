@@ -12,6 +12,24 @@ Explore the detailed architecture and optimization methodologies of the Flou2Flo
 2. [Token Optimization and Semantic Engineering](docs/optimization.md): Detailed explanation of TOON, semantic pruning, stable hashing, and benchmarking.
 3. [API Reference and Gateway](docs/api_reference.md): Full documentation of all endpoints, parameters, and the multimodal input gateway.
 
+## Models Used
+
+The system uses a heterogeneous model stack. Current models referenced in code and deployment are:
+
+| Engine | Env Variable | Default in App (`flou2flow/config.py`) | Default in Docker (`docker-compose.yml`) |
+| :--- | :--- | :--- | :--- |
+| Primary reasoning | `LLM_MODEL` | `phi3` | `qwen2:1.5b` |
+| Cleaning / aggregation | `CLEANING_MODEL` | `qwen2:1.5b` | Uses app default unless overridden |
+| Vision / OCR | `VISION_MODEL` | `moondream` | `llava` |
+| Voice transcription | `WHISPER_MODEL` | `base` (OpenAI Whisper) | Uses app default unless overridden |
+
+Documented architecture alternatives in `docs/architecture.md` also include:
+
+- SmolLM 135M (cleaning engine)
+- Qwen2 0.5B / 1.5B (analytical engine)
+- Llava / Moondream (vision engine)
+- Whisper Base (transcription engine)
+
 ## Project Vision
 
 The mission of Flou2Flow is to eliminate the requirement for massive reasoning models in structural business tasks. By implementing a Zero Waste token philosophy and specialized model routing, we deliver professional grade workflow extraction on resource constrained hardware.
