@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -21,17 +20,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
-app = FastAPI(
-    title="Flou2Flow",
-    description="Transform fuzzy business needs into executable workflows using Mistral 7B",
-    version="0.1.0",
-    docs_url="/docs",
-)
 
-
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Connect to NATS and start subscribers on startup."""
     await nats_handler.connect()
 
@@ -48,12 +39,21 @@ async def startup():
     await nats_handler.subscribe_tasks(nats_task_callback)
     await nats_handler.subscribe_preprocess()
 
+    yield
 
-@app.on_event("shutdown")
-async def shutdown():
     """Cleanup on shutdown."""
     await nats_handler.disconnect()
     await llm_client.close()
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="Flou2Flow",
+    description="Transform fuzzy business needs into executable workflows using Mistral 7B",
+    version="0.1.0",
+    docs_url="/docs",
+    lifespan=lifespan,
+)
 
 
 @app.get("/api/health")
