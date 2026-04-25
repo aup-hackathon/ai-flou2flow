@@ -399,5 +399,11 @@ async def generate_qa_questions(req: QARequest):
         response = await agent.generate_questions(processed_text, context=req.context, model=req.model)
         return response
     except Exception as e:
-        logger.error(f"QA Agent error: {e}", exc_info=True)
-        return JSONResponse(status_code=500, content={"error": f"QA Agent error: {str(e)}"})
+        logger.error(f"QA Agent failed: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+if __name__ == "__main__":
+    import uvicorn
+    print(f"🚀 Starting Flou2Flow on {settings.HOST}:{settings.PORT} (Models: {settings.LLM_MODEL}, {settings.VISION_MODEL})")
+    uvicorn.run(app, host=settings.HOST, port=settings.PORT)
