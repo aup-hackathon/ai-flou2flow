@@ -127,7 +127,9 @@ class QueueRequest(BaseModel):
     input_text: str = Field(description="Unstructured business process description")
     mode: str = Field(default="auto", description="Execution mode (auto, interactive)")
     model: str | None = Field(default=None, description="Optional model override (e.g., 'elsa', 'mistral')")
-    image_data: str | None = Field(default=None, description="Base64 encoded image data for multimodal processing")
+    image_data: str | None = Field(default=None, description="Base64 encoded image data")
+    voice_data: str | None = Field(default=None, description="Base64 encoded audio data (mp3, wav, etc.)")
+    pdf_data: str | None = Field(default=None, description="Base64 encoded PDF document")
 
 
 class AgentRequest(BaseModel):
@@ -136,7 +138,9 @@ class AgentRequest(BaseModel):
     task: str = Field(description="User task for the agentic system")
     mode: str = Field(default="auto", description="Execution mode (auto, interactive)")
     model: str | None = Field(default=None, description="Optional model override")
-    image_data: str | None = Field(default=None, description="Base64 encoded image data for multimodal processing")
+    image_data: str | None = Field(default=None, description="Base64 encoded image data")
+    voice_data: str | None = Field(default=None, description="Base64 encoded audio data")
+    pdf_data: str | None = Field(default=None, description="Base64 encoded PDF document")
 
 
 class AgentResponse(BaseModel):

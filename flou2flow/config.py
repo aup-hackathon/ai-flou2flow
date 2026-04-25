@@ -35,7 +35,7 @@ class Settings:
     # LLM Parameters
     TEMPERATURE: float = 0.3  # Low temperature for structured output
     MAX_TOKENS: int = 4096
-    VISION_MODEL: str = os.getenv("VISION_MODEL", "llava")
+    VISION_MODEL: str = os.getenv("VISION_MODEL", "moondream")
 
     @property
     def api_url(self) -> str:
