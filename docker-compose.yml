@@ -1,0 +1,40 @@
+name: flou2flow
+
+services:
+  flou2flow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flou2flow-api
+    ports:
+      - "8000:8000"
+    environment:
+      # LLM Configuration
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_MODEL: ${LLM_MODEL:-qwen2:1.5b}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      VISION_MODEL: ${VISION_MODEL:-llava}
+
+      # Server
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-8000}
+
+      # NATS - connect to backend's NATS
+      NATS_URL: ${NATS_URL:-nats://flowforge-nats:4222}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - flowforge_default
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  ollama-models:
+
+networks:
+  flowforge_default:
+    external: true
