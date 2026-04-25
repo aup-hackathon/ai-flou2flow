@@ -244,13 +244,22 @@ async def generate_workflow_sync(req: QueueRequest):
             return workflow_json
 
         elif req.workflow == "process":
+            mermaid_diagram = ""
+            if result.entities and result.flow:
+                try:
+                    mermaid_diagram = generate_mermaid_diagram(result.entities, result.flow)
+                except Exception as md_err:
+                    logger.warning(f"Mermaid generation failed: {md_err}")
+
             return {
                 "success": len(result.errors) == 0,
-                "steps_completed": [s for s in result.steps_completed if s != "workflow_generation"],
+                "steps_completed": result.steps_completed,
                 "errors": result.errors,
                 "context": result.context.model_dump() if result.context else None,
                 "entities": result.entities.model_dump() if result.entities else None,
                 "flow": result.flow.model_dump() if result.flow else None,
+                "elsa_workflow": workflow_json,
+                "mermaid_diagram": mermaid_diagram,
             }
 
         else:  # full — matches the confirmed schema
