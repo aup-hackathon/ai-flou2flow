@@ -17,6 +17,7 @@ from .multimodal import processor
 from .nats_handler import nats_handler
 from .pipeline import run_pipeline
 from .prompts import MULTIMODAL_SYSTEM_PROMPT, MULTIMODAL_USER_PROMPT
+from .utils import semantic_prune
 
 # Configure logging
 logging.basicConfig(
@@ -111,6 +112,9 @@ async def process_multimodal_input(
     model: str | None = None
 ) -> str:
     """Aggregates content from multiple local sources (Voice, PDF, Image) into clean text."""
+    # Pro Method: Semantic Pruning of the initial input text
+    input_text = semantic_prune(input_text)
+    
     extra_context = []
 
     # 1. Process Voice
