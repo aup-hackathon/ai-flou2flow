@@ -30,6 +30,7 @@ class Actor(BaseModel):
 class Task(BaseModel):
     """A task or activity in the process."""
     id: str
+    node_type: str = Field(default="task", description="Type of the node for graph rendering")
     name: str
     description: str = ""
     actor_id: str = ""
@@ -39,6 +40,7 @@ class Task(BaseModel):
 class Decision(BaseModel):
     """A decision point in the process."""
     id: str
+    node_type: str = Field(default="decision", description="Type of the node for graph rendering")
     question: str
     conditions: list[Condition] = Field(default_factory=list)
 
