@@ -18,17 +18,14 @@ EXAMPLES_DIR = BASE_DIR / "examples"
 class Settings:
     """Application settings loaded from environment variables."""
 
-    # LLM Configuration
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama")
-    MISTRAL_API_KEY: str = os.getenv("MISTRAL_API_KEY", "")
+    # LLM Configuration (Local Only)
+    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     
     # Pro Hybrid Model Routing
     LLM_MODEL: str = os.getenv("LLM_MODEL", "phi3")  # Primary Reasoning
     VISION_MODEL: str = os.getenv("VISION_MODEL", "moondream")  # Vision/OCR
     CLEANING_MODEL: str = os.getenv("CLEANING_MODEL", "qwen2:1.5b")  # Aggregation/Cleaning
     WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "base")  # Voice Transcription
-    
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
     # Server
     HOST: str = os.getenv("HOST", "0.0.0.0")
