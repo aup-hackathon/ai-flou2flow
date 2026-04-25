@@ -18,10 +18,18 @@ Current default models in use now:
 
 | Engine | Env Variable | Model |
 | :--- | :--- | :--- |
-| Primary reasoning | `LLM_MODEL` | `qwen2:1.5b` |
-| Cleaning / aggregation | `CLEANING_MODEL` | `qwen2:1.5b` |
-| Vision / OCR | `VISION_MODEL` | `llava` |
+| Primary reasoning | `LLM_MODEL` | `qwen2:0.5b` |
+| Cleaning / aggregation | `CLEANING_MODEL` | `smollm:135m` |
+| Vision / OCR | `VISION_MODEL` | `llava:7b` |
 | Voice transcription | `WHISPER_MODEL` | `base` (OpenAI Whisper) |
+
+### Post-Competition Roadmap: Vision Model Upgrade
+
+> [!NOTE]
+> **Planned Switch to Flamingo (or equivalent ultra-light model)**: After the hackathon competition, we will replace `llava:7b` with a **Flamingo-based** or similar ultra-lightweight computer vision model.
+>
+> **Why?** Flamingo and ultra-lightweight vision models offer superior token optimization and efficiency for multimodal tasks. This transition is essential for better model management and reducing our token budget during image processing, perfectly aligning with our Zero Waste token philosophy.
+
 
 ## Project Vision
 
