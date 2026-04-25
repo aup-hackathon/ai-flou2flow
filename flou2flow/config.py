@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
 
 # Load .env file
@@ -27,7 +26,7 @@ class Settings:
 
     # Server
     HOST: str = os.getenv("HOST", "0.0.0.0")
-    PORT: int = int(os.getenv("PORT", "8000"))
+    PORT: int = int(os.getenv("PORT", "8001"))
 
     # NATS
     NATS_URL: str = os.getenv("NATS_URL", "nats://localhost:4222")

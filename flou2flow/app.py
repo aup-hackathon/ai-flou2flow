@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from .agent import FlouAgent
 from .config import settings
 from .llm import llm_client
-from .models import AgentRequest, QARequest
+from .models import AgentRequest, QARequest, QueueRequest
 from .nats_handler import nats_handler
 from .pipeline import run_pipeline
 
@@ -127,6 +127,39 @@ async def run_workflow_task(job_id: str, workflow: str, input_text: str, mode: s
     except Exception as e:
         logger.error(f"Task error (job {job_id}): {e}", exc_info=True)
         await nats_handler.publish_result(job_id, {"error": str(e)})
+
+
+@app.post("/api/workflow/generate")
+async def generate_workflow_sync(req: QueueRequest):
+    """Synchronously generate a workflow and return the result."""
+    logger.info(f"Sync workflow request: {req.workflow} (model: {req.model})")
+    
+    try:
+        # Step 0: Multimodal processing
+        processed_text = await process_multimodal_input(req.input_text, req.image_data)
+        
+        # Step 1: Run pipeline
+        result = await run_pipeline(processed_text, model=req.model)
+        
+        if req.workflow == "elsa":
+            return result.elsa_workflow
+        elif req.workflow == "process":
+            return {
+                "context": result.context,
+                "entities": result.entities,
+                "flow": result.flow
+            }
+        else: # full
+            return {
+                "elsa_workflow": result.elsa_workflow,
+                "context": result.context,
+                "entities": result.entities,
+                "flow": result.flow
+            }
+            
+    except Exception as e:
+        logger.error(f"Sync workflow generation failed: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.post("/api/agent")
