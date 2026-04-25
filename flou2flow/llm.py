@@ -167,7 +167,7 @@ class LLMClient:
                 text = text[first_newline + 1:]
             except ValueError:
                 text = text[3:]
-            
+
             # Remove closing ```
             if text.endswith("```"):
                 text = text[:-3].strip()
