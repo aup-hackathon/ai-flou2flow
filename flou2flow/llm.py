@@ -35,15 +35,6 @@ class LLMClient:
         model: str | None = None,
         response_schema: SchemaType = None,
     ) -> str:
-        """Send a chat completion request and return the response text.
-
-        Args:
-            response_schema: Optional Pydantic model *class*. When provided,
-                its JSON Schema is sent to Ollama's ``format`` field so the
-                model is grammar-constrained to produce exactly that shape.
-                Falls back to ``format: "json"`` when *json_mode* is True
-                but no schema is given.
-        """
         temp = temperature or settings.TEMPERATURE
         tokens = max_tokens or settings.MAX_TOKENS
 
