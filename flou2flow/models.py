@@ -170,6 +170,24 @@ class QAResponse(BaseModel):
     thought: str = Field(description="Agent's reasoning about the gaps")
 
 
+# ── LLM-facing Schemas (for Ollama Structured Output) ─────────────────────
+# These lean models are passed to Ollama's `format` field as JSON Schema so
+# the model is grammar-constrained to produce exactly this shape.
+
+class MultimodalResult(BaseModel):
+    """Schema enforced on LLM for multimodal content analysis."""
+    type: str = Field(description="Global type: IMAGE, PDF, TEXT, AUDIO, CODE, UNKNOWN")
+    subtype: str = Field(default="", description="Internal type for PDFs or complex inputs")
+    result: str = Field(description="Cleaned, structured text output")
+
+
+class AgentStep(BaseModel):
+    """Schema enforced on LLM for each agent reasoning step."""
+    thought: str = Field(default="", description="Step-by-step reasoning")
+    tool_call: dict | None = Field(default=None, description="Tool call with 'tool' and 'args' keys, or null")
+    final_result: str | None = Field(default=None, description="Final answer when done, or null")
+
+
 # ── NATS Payload Schemas (for documentation / type hints) ─────────────────
 
 class NatsTaskResult(BaseModel):

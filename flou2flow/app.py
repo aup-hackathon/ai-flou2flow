@@ -12,7 +12,7 @@ from .agent import FlouAgent
 from .config import settings
 from .llm import llm_client
 from .mermaid import generate_mermaid_diagram
-from .models import AgentRequest, QARequest, QueueRequest
+from .models import AgentRequest, MultimodalResult, QARequest, QueueRequest
 from .nats_handler import nats_handler
 from .pipeline import PipelineResult, run_pipeline
 
@@ -101,21 +101,41 @@ async def health_check():
     }
 
 
-async def process_multimodal_input(input_text: str, image_data: str | None) -> str:
-    """If image data is provided, analyze it and enrich the input text."""
-    if not image_data:
-        return input_text
-
+async def process_multimodal_input(input_text: str, image_data: str | None, model: str | None = None) -> str:
+    """Analyze the input content deeply, detect its global type, and return clean structured text."""
+    from .prompts import MULTIMODAL_SYSTEM_PROMPT, MULTIMODAL_USER_PROMPT
+    user_prompt = MULTIMODAL_USER_PROMPT.format(input_text=input_text)
+    
     try:
-        logger.info("Analyzing multimodal input (image)...")
-        description = await llm_client.vision_chat(
-            prompt="Analyze this process diagram or whiteboard drawing. Describe the actors, tasks, and flow in detail so it can be transformed into a structured workflow.",
-            image_data=image_data,
-        )
-        return f"{input_text}\n\n[Diagram Description]:\n{description}"
+        if image_data:
+            logger.info("Analyzing multimodal input (image) with advanced agent...")
+            # Vision models might not support system_prompt or json_mode natively via litellm/ollama kwargs
+            # so we combine them for safety
+            combined_prompt = f"{MULTIMODAL_SYSTEM_PROMPT}\n\n{user_prompt}"
+            response = await llm_client.vision_chat(
+                prompt=combined_prompt,
+                image_data=image_data,
+            )
+        else:
+            logger.info("Analyzing text input with advanced multimodal agent...")
+            response = await llm_client.chat(
+                system_prompt=MULTIMODAL_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                model=model,
+                json_mode=True,
+                response_schema=MultimodalResult,
+            )
+            
+        data = llm_client.parse_json_response(response)
+        cleaned_text = data.get("result", "")
+        
+        if cleaned_text:
+            return cleaned_text
+        return input_text
+        
     except Exception as e:
         logger.error(f"Multimodal analysis failed: {e}")
-        return f"{input_text}\n\n(Note: Image analysis failed: {str(e)})"
+        return input_text
 
 
 async def run_workflow_task(
@@ -139,7 +159,7 @@ async def run_workflow_task(
             progress_pct=10,
             message="Processing input (multimodal check)",
         )
-        processed_text = await process_multimodal_input(input_text, image_data)
+        processed_text = await process_multimodal_input(input_text, image_data, model=model)
 
         # ── Step 1–4: Pipeline ─────────────────────────────────
         await nats_handler.publish_progress(
@@ -212,7 +232,7 @@ async def generate_workflow_sync(req: QueueRequest):
     logger.info(f"Sync workflow [{req.workflow}] session={req.session_id} model={req.model}")
 
     try:
-        processed_text = await process_multimodal_input(req.input_text, req.image_data)
+        processed_text = await process_multimodal_input(req.input_text, req.image_data, model=req.model)
         result = await run_pipeline(processed_text, model=req.model)
 
         confidence = _compute_confidence(result)
@@ -291,7 +311,7 @@ async def run_agent(req: AgentRequest):
     """Run an agentic system to handle a task."""
     logger.info(f"Agent request: {req.task} (mode: {req.mode}, session={req.session_id})")
 
-    processed_task = await process_multimodal_input(req.task, req.image_data)
+    processed_task = await process_multimodal_input(req.task, req.image_data, model=req.model)
     agent = FlouAgent()
 
     try:
@@ -329,7 +349,7 @@ async def generate_qa_questions(req: QARequest):
     """Generate clarifying questions from process gaps."""
     logger.info(f"QA request: {len(req.input_text)} chars (multimodal: {req.image_data is not None})")
 
-    processed_text = await process_multimodal_input(req.input_text, req.image_data)
+    processed_text = await process_multimodal_input(req.input_text, req.image_data, model=req.model)
     agent = FlouAgent()
 
     try:

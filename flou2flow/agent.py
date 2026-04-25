@@ -6,7 +6,7 @@ from typing import Any
 
 from .exporters import generate_elsa_workflow
 from .llm import llm_client
-from .models import AgentResponse, ProcessContext, ProcessEntities, ProcessFlow, QAResponse
+from .models import AgentResponse, AgentStep, ProcessContext, ProcessEntities, ProcessFlow, QAResponse
 from .pipeline import (
     step_context_understanding,
     step_entity_extraction,
@@ -68,7 +68,8 @@ class FlouAgent:
                 system_prompt=current_system_prompt,
                 user_prompt=current_input,
                 json_mode=True,
-                model=model
+                model=model,
+                response_schema=AgentStep,
             )
 
             try:
@@ -128,7 +129,8 @@ class FlouAgent:
             system_prompt=QA_SYSTEM_PROMPT,
             user_prompt=user_prompt,
             json_mode=True,
-            model=model
+            model=model,
+            response_schema=QAResponse,
         )
 
         data = llm_client.parse_json_response(response_text)

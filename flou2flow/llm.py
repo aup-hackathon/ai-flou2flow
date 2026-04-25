@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 import httpx
+from pydantic import BaseModel
 
 from .config import settings
 
 logger = logging.getLogger(__name__)
+
+# Type alias: callers pass the Pydantic *class* (not an instance)
+SchemaType = type[BaseModel] | None
 
 
 class LLMClient:
@@ -28,16 +33,25 @@ class LLMClient:
         max_tokens: int | None = None,
         json_mode: bool = True,
         model: str | None = None,
+        response_schema: SchemaType = None,
     ) -> str:
-        """Send a chat completion request and return the response text."""
+        """Send a chat completion request and return the response text.
+
+        Args:
+            response_schema: Optional Pydantic model *class*. When provided,
+                its JSON Schema is sent to Ollama's ``format`` field so the
+                model is grammar-constrained to produce exactly that shape.
+                Falls back to ``format: "json"`` when *json_mode* is True
+                but no schema is given.
+        """
         temp = temperature or settings.TEMPERATURE
         tokens = max_tokens or settings.MAX_TOKENS
 
         target_model = model or self.model
         if self.provider == "ollama":
-            return await self._ollama_chat(system_prompt, user_prompt, temp, tokens, json_mode, target_model)
+            return await self._ollama_chat(system_prompt, user_prompt, temp, tokens, json_mode, target_model, response_schema)
         else:
-            return await self._mistral_chat(system_prompt, user_prompt, temp, tokens, json_mode, target_model)
+            return await self._mistral_chat(system_prompt, user_prompt, temp, tokens, json_mode, target_model, response_schema)
 
     async def _mistral_chat(
         self,
@@ -47,6 +61,7 @@ class LLMClient:
         max_tokens: int,
         json_mode: bool,
         model: str,
+        response_schema: SchemaType = None,
     ) -> str:
         """Call Mistral AI API."""
         headers = {
@@ -54,7 +69,7 @@ class LLMClient:
             "Content-Type": "application/json",
         }
 
-        payload = {
+        payload: dict[str, Any] = {
             "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -64,7 +79,15 @@ class LLMClient:
             "max_tokens": max_tokens,
         }
 
-        if json_mode:
+        if response_schema is not None:
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": response_schema.__name__,
+                    "schema": response_schema.model_json_schema(),
+                },
+            }
+        elif json_mode:
             payload["response_format"] = {"type": "json_object"}
 
         logger.info(f"Calling Mistral API with model={model}")
@@ -89,9 +112,15 @@ class LLMClient:
         max_tokens: int,
         json_mode: bool,
         model: str,
+        response_schema: SchemaType = None,
     ) -> str:
-        """Call Ollama local API."""
-        payload = {
+        """Call Ollama local API.
+
+        When *response_schema* is provided the full JSON Schema is sent via
+        the ``format`` field so Ollama grammar-constrains the generation,
+        guaranteeing the output matches the Pydantic model.
+        """
+        payload: dict[str, Any] = {
             "model": model,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -104,7 +133,12 @@ class LLMClient:
             },
         }
 
-        if json_mode:
+        if response_schema is not None:
+            # Structured output: pass the full JSON Schema object
+            schema = response_schema.model_json_schema()
+            logger.info(f"Using structured output schema: {response_schema.__name__}")
+            payload["format"] = schema
+        elif json_mode:
             payload["format"] = "json"
 
         logger.info(f"Calling Ollama with model={model}")

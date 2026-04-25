@@ -121,6 +121,7 @@ async def step_context_understanding(input_text: str, model: str | None = None) 
         system_prompt=CONTEXT_SYSTEM_PROMPT,
         user_prompt=user_prompt,
         model=model,
+        response_schema=ProcessContext,
     )
 
     data = llm_client.parse_json_response(response)
@@ -151,6 +152,7 @@ async def step_entity_extraction(
         system_prompt=ENTITIES_SYSTEM_PROMPT,
         user_prompt=user_prompt,
         model=model,
+        response_schema=ProcessEntities,
     )
 
     data = llm_client.parse_json_response(response)
@@ -241,6 +243,7 @@ async def step_flow_construction(
         system_prompt=FLOW_SYSTEM_PROMPT,
         user_prompt=user_prompt,
         model=model,
+        response_schema=ProcessFlow,
     )
 
     data = llm_client.parse_json_response(response)
