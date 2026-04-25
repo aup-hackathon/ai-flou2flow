@@ -17,7 +17,7 @@ def test_image_route():
         "input_text": "Extract the flow from this whiteboard photo.",
         "image_data": img_base64,
         "workflow": "process",
-        "model": "llava:7b"
+        "model": "qwen2:1.5b"
     }
 
     send_request(payload)
@@ -32,7 +32,7 @@ def test_pdf_route():
         "input_text": "Analyze this document and extract the procurement steps.",
         "image_data": img_base64,
         "workflow": "process",
-        "model": "llava:7b"
+        "model": "qwen2:1.5b"
     }
 
     send_request(payload)
@@ -51,7 +51,7 @@ def test_voice_route():
         "session_id": "test-voice-session",
         "input_text": messy_transcript,
         "workflow": "process",
-        "model": "mistral:latest" # Use mistral for text cleaning
+        "model": "qwen2:1.5b"
     }
 
     send_request(payload)
