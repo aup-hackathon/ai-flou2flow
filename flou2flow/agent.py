@@ -1,6 +1,5 @@
 """Agentic system for Flou2Flow."""
 
-import json
 import logging
 from typing import Any
 
@@ -13,6 +12,7 @@ from .pipeline import (
     step_flow_construction,
 )
 from .prompts import QA_SYSTEM_PROMPT, QA_USER_PROMPT
+from .toon import to_toon
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ class FlouAgent:
 
                 try:
                     result = await self.execute_tool(tool_name, args, context, model=model)
-                    current_input = f"Tool '{tool_name}' returned: {json.dumps(result, ensure_ascii=False)}"
+                    current_input = f"Tool '{tool_name}' returned:\n{to_toon(result)}"
                     # Store context to pass between tools if needed
                     if tool_name == "analyze_context":
                         context["context"] = result
@@ -122,7 +122,7 @@ class FlouAgent:
         """Analyze input text for gaps and generate clarifying questions."""
         user_prompt = QA_USER_PROMPT.format(
             input_text=input_text,
-            context=json.dumps(context, ensure_ascii=False) if context else "None"
+            context=to_toon(context) if context else "None"
         )
 
         response_text = await llm_client.chat(

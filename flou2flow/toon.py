@@ -15,12 +15,13 @@ from __future__ import annotations
 from typing import Any
 
 
-def to_toon(data: Any, indent: int = 0) -> str:
+def to_toon(data: Any, indent: int = 0, key: str = "") -> str:
     """Convert a Python object to TOON notation.
 
     Args:
         data: dict, list, or scalar value.
         indent: current indentation depth (number of spaces).
+        key: optional label for root-level lists (e.g. ``"tasks"``).
 
     Returns:
         Compact TOON string.
@@ -28,7 +29,7 @@ def to_toon(data: Any, indent: int = 0) -> str:
     if isinstance(data, dict):
         return _dict_to_toon(data, indent)
     elif isinstance(data, list):
-        return _list_to_toon(data, indent)
+        return _list_to_toon(data, indent, key=key)
     else:
         return _scalar(data)
 

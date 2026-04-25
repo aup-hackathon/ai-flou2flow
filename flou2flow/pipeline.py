@@ -37,6 +37,7 @@ from .prompts import (
     FLOW_SYSTEM_PROMPT,
     FLOW_USER_PROMPT,
 )
+from .toon import to_toon
 
 logger = logging.getLogger(__name__)
 
@@ -214,29 +215,23 @@ async def step_flow_construction(
     model: str | None = None,
 ) -> ProcessFlow:
     """Step 3: Construct the process flow from extracted entities."""
-    # Prepare task and decision summaries for the prompt
-    tasks_json = json.dumps(
-        [{"id": t.id, "name": t.name, "actor": t.actor_id} for t in entities.tasks],
-        ensure_ascii=False,
-        indent=2,
-    )
-    decisions_json = json.dumps(
-        [
-            {
-                "id": d.id,
-                "question": d.question,
-                "conditions": [{"label": c.label, "target_id": c.target_id} for c in d.conditions],
-            }
-            for d in entities.decisions
-        ],
-        ensure_ascii=False,
-        indent=2,
-    )
+    # Prepare task and decision summaries in compact TOON format
+    tasks_data = [{"id": t.id, "name": t.name, "actor": t.actor_id} for t in entities.tasks]
+    decisions_data = [
+        {
+            "id": d.id,
+            "question": d.question,
+            "conditions": [{"label": c.label, "target_id": c.target_id} for c in d.conditions],
+        }
+        for d in entities.decisions
+    ]
+    tasks_toon = to_toon(tasks_data, key="tasks")
+    decisions_toon = to_toon(decisions_data, key="decisions")
 
     user_prompt = FLOW_USER_PROMPT.format(
         summary=context.summary,
-        tasks_json=tasks_json,
-        decisions_json=decisions_json,
+        tasks_json=tasks_toon,
+        decisions_json=decisions_toon,
     )
 
     response = await llm_client.chat(
